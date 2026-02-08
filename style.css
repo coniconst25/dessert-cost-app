@@ -70,7 +70,8 @@ h1{ margin:0; font-size:18px; }
 table{
   width:100%;
   border-collapse: collapse;
-  min-width: 820px; /* allows horizontal scroll on phones */
+  table-layout: auto;
+  min-width: 0px; /* allows horizontal scroll on phones */
   background: rgba(17,24,39,0.6);
 }
 
@@ -89,7 +90,7 @@ th{
   background: rgba(17,24,39,0.95);
 }
 
-td.num, th.num{ text-align:right; }
+td.num, th.num{ text-align:left; }
 
 input{
   width:100%;
@@ -123,3 +124,4 @@ input:focus{ border-color:#475569; }
   color:var(--muted);
   font-size:12px;
 }
+
