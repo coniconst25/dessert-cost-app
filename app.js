@@ -7,6 +7,7 @@ const CURRENT_RECIPE_KEY = "dessert_current_recipe_v2";
 const ROWS_KEY_PREFIX    = "dessert_rows__v2__";
 const ING_CACHE_KEY      = "dessert_ingredient_cache_v2";
 const MARGIN_KEY         = "dessert_margin_pct_v2";
+const CLEAN_TEMPLATE_FLAG = "dessert_cleaned_legacy_template_v2";
 
 // IndexedDB
 const DB_NAME = "dessert_profiles_db_v2";
@@ -48,7 +49,32 @@ function escapeHtml(s){
 
 function defaultRows(){
   return [
-    { name:"", cost:0, amount:0, recipeAmount:0 },
+    { name:"", cost:0, amount:0, recipeAmount:0 }
+function isLegacyTemplate(rows){
+  // Detect the old hardcoded template: Flour + Sugar (case-insensitive)
+  if (!Array.isArray(rows) || rows.length !== 2) return false;
+  const a = String(rows[0]?.name || "").trim().toLowerCase();
+  const b = String(rows[1]?.name || "").trim().toLowerCase();
+  return (a === "flour" && b === "sugar");
+}
+
+function maybeCleanLegacyTemplate(){
+  // One-time cleanup: remove old Flour/Sugar template from the Default recipe
+  // (we do NOT auto-delete other recipes to avoid wiping real user data)
+  try{
+    if (localStorage.getItem(CLEAN_TEMPLATE_FLAG) === "1") return;
+    const raw = localStorage.getItem(getRowsKey("Default"));
+    if (!raw) { localStorage.setItem(CLEAN_TEMPLATE_FLAG, "1"); return; }
+    const rows = JSON.parse(raw);
+    if (isLegacyTemplate(rows)){
+      localStorage.removeItem(getRowsKey("Default"));
+    }
+    localStorage.setItem(CLEAN_TEMPLATE_FLAG, "1");
+  }catch{
+    // ignore
+  }
+}
+,
   ];
 }
 
@@ -423,6 +449,31 @@ function scheduleSave(){
   }, 250);
 }
 
+async function createRecipeClean(name){
+  // Ensure the newly created recipe always starts CLEAN (even if it existed before)
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+
+  // wipe local rows
+  try{ localStorage.removeItem(getRowsKey(name)); }catch{}
+
+  // wipe DB profile (if available)
+  if (DB){
+    try{ await dbDeleteRecipe(DB, name); }catch{}
+  }
+
+  currentRecipe = name;
+  setCurrentRecipe(name);
+
+  rowsState = defaultRows();
+  saveRowsForRecipe(name, rowsState);
+
+  setRecipeTitle();
+  renderTable();
+
+  await refreshRecipesUI();
+  closeDrawer();
+}
+
 // ---------------- Boot ----------------
 document.addEventListener("DOMContentLoaded", async () => {
   // 1) Drawer listeners FIRST (so menu opens even if later code fails)
@@ -433,6 +484,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (openBtn) openBtn.addEventListener("click", openDrawer);
   if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
   if (overlay) overlay.addEventListener("click", closeDrawer);
+
+  // One-time cleanup of old Flour/Sugar template for Default
+  maybeCleanLegacyTemplate();
 
   // 2) Margin init
   const marginEl = document.getElementById("marginPct");
@@ -473,13 +527,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const name = String(input ? input.value : "").trim();
     if (!name) return;
 
-    await switchRecipe(name, true);
+    await createRecipeClean(name);
+
     if (input) input.value = "";
-    await refreshRecipesUI();
-    closeDrawer();
   });
 
-  const saveBtn = document.getElementById("saveRecipeBtn");
+const saveBtn = document.getElementById("saveRecipeBtn");
   if (saveBtn) saveBtn.addEventListener("click", async () => {
     if (!DB) {
       alert("IndexedDB no disponible en este navegador.");
@@ -551,6 +604,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 5) Open DB (non-blocking behavior: even if this fails, menu still works)
   try{
     DB = await openDB();
+    // If Default rows were cleaned from localStorage, also clean its DB profile
+    try{
+      const rawDef = localStorage.getItem(getRowsKey("Default"));
+      if (!rawDef) {
+        await dbDeleteRecipe(DB, "Default");
+      }
+    }catch{}
   }catch(err){
     console.warn("IndexedDB not available:", err);
     DB = null;
