@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#f3dfe4">
 
   <!-- Cache-bust -->
-  <link rel="stylesheet" href="style.css?v=20260208d" />
+  <link rel="stylesheet" href="style.css?v=20260208e" />
 </head>
 <body>
 
@@ -102,6 +102,33 @@
       <div class="smallNote">Eliminar carpeta no elimina recetas; solo las deja “sin carpeta”.</div>
     </div>
 
+    <!-- Backup: Export / Import JSON -->
+    <div class="drawerCard">
+      <div class="drawerRow" style="justify-content:space-between; gap:10px;">
+        <div class="pill">Respaldo (JSON)</div>
+        <button id="exportBackupBtn" class="btn" type="button">Exportar</button>
+      </div>
+
+      <div class="drawerGrid2" style="margin-top:10px;">
+        <div class="drawerCol">
+          <label class="fieldLabel" for="importFile">Importar</label>
+          <input id="importFile" type="file" accept="application/json,.json" />
+        </div>
+
+        <label class="check" title="Si activas esto, las recetas del JSON sobrescriben las existentes con el mismo nombre">
+          <input id="importOverwriteToggle" type="checkbox" />
+          <span>Sobrescribir</span>
+        </label>
+      </div>
+
+      <div class="drawerRow" style="margin-top:10px;">
+        <button id="importBackupBtn" class="btn btn-secondary" type="button">Importar ahora</button>
+        <button id="downloadLastBackupBtn" class="iconBtn" type="button" title="Baja nuevamente el último respaldo exportado">Bajar último</button>
+      </div>
+
+      <div class="smallNote" id="backupStatus">Tip: Exporta antes de cambios grandes. Importar “fusiona” por defecto.</div>
+    </div>
+
   </div>
 </aside>
 
@@ -184,7 +211,7 @@
 </main>
 
 <!-- Cache-bust -->
-<script src="app.js?v=20260208d"></script>
+<script src="app.js?v=20260208e"></script>
 
 <script>
 if ('serviceWorker' in navigator) {
