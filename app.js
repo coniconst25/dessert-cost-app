@@ -14,7 +14,7 @@ function money(v){
 
 function defaultRows(){
   return [
-    { name:"Flour", cost:1290, amount:1000, recipeAmount:300 },
+    { name:"Flour", costo:1290, amount:1000, recipeAmount:300 },
     { name:"Sugar", cost:0, amount:0, recipeAmount:0 },
   ];
 }
@@ -204,3 +204,4 @@ document.getElementById("resetBtn").addEventListener("click", () => {
 
 // initial
 initialRender();
+
