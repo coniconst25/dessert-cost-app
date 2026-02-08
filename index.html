@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#f3dfe4">
 
   <!-- Cache-bust -->
-  <link rel="stylesheet" href="style.css?v=20260208c" />
+  <link rel="stylesheet" href="style.css?v=20260208d" />
 </head>
 <body>
 
@@ -23,6 +23,34 @@
   </div>
 
   <div class="drawerBody">
+
+    <!-- Search + Filters -->
+    <div class="drawerCard">
+      <div class="drawerCol">
+        <label class="fieldLabel" for="recipeSearch">Buscar</label>
+        <input id="recipeSearch" placeholder="Buscar receta…" />
+      </div>
+
+      <div class="drawerGrid2">
+        <div class="drawerCol">
+          <label class="fieldLabel" for="folderFilter">Carpeta</label>
+          <select id="folderFilter" class="select">
+            <option value="">Todas</option>
+          </select>
+        </div>
+
+        <label class="check">
+          <input id="favOnlyToggle" type="checkbox" />
+          <span>Solo favoritas</span>
+        </label>
+      </div>
+
+      <div class="smallNote">
+        Tip: Usa carpeta + buscador + favoritas para ordenar rápido.
+      </div>
+    </div>
+
+    <!-- Create recipe -->
     <div class="drawerCard">
       <div class="drawerRow">
         <input id="newRecipeName" placeholder="Nueva Receta (ej. Kuchen)" />
@@ -31,13 +59,49 @@
       <div class="smallNote">Tip: Abre una receta, luego presiona <b>Guardar</b> para almacenar ingredientes.</div>
     </div>
 
+    <!-- Current recipe actions -->
     <div class="drawerCard">
       <div class="drawerRow" style="justify-content:space-between; gap:10px;">
         <div class="pill">Receta actual</div>
-        <button id="saveRecipeBtn" class="btn" type="button">Guardar</button>
+        <div class="rowRight">
+          <button id="toggleFavoriteBtn" class="iconBtn" type="button" title="Marcar como favorita">☆</button>
+          <button id="saveRecipeBtn" class="btn" type="button">Guardar</button>
+        </div>
       </div>
-      <div id="recipeList" class="recipeList" role="list"></div>
+
+      <div class="drawerGrid2" style="margin-top:10px;">
+        <div class="drawerCol">
+          <label class="fieldLabel" for="currentFolderSelect">Carpeta</label>
+          <select id="currentFolderSelect" class="select">
+            <option value="">(Sin carpeta)</option>
+          </select>
+        </div>
+
+        <div class="drawerCol">
+          <label class="fieldLabel">&nbsp;</label>
+          <button id="clearFolderBtn" class="btn btn-secondary" type="button">Quitar carpeta</button>
+        </div>
+      </div>
+
+      <div id="recipeList" class="recipeList" role="list" style="margin-top:12px;"></div>
     </div>
+
+    <!-- Folders management -->
+    <div class="drawerCard">
+      <div class="drawerRow">
+        <input id="newFolderName" placeholder="Nueva carpeta (ej. Tortas)" />
+        <button id="createFolderBtn" class="btn btn-secondary" type="button">Crear carpeta</button>
+      </div>
+
+      <div class="folderListHeader">
+        <div class="pill">Carpetas</div>
+        <button id="resetFiltersBtn" class="iconBtn" type="button" title="Limpiar filtros">Limpiar</button>
+      </div>
+
+      <div id="foldersList" class="foldersList"></div>
+      <div class="smallNote">Eliminar carpeta no elimina recetas; solo las deja “sin carpeta”.</div>
+    </div>
+
   </div>
 </aside>
 
@@ -120,7 +184,7 @@
 </main>
 
 <!-- Cache-bust -->
-<script src="app.js?v=20260208c"></script>
+<script src="app.js?v=20260208d"></script>
 
 <script>
 if ('serviceWorker' in navigator) {
@@ -132,5 +196,3 @@ if ('serviceWorker' in navigator) {
 
 </body>
 </html>
-
-
