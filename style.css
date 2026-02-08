@@ -9,6 +9,7 @@
 }
 
 *{ box-sizing:border-box; }
+
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -45,13 +46,18 @@ h1{ margin:0; font-size:18px; }
 }
 .btn:hover{ border-color:#334155; }
 .btn-secondary{ opacity:0.9; }
+
 .btn-danger{
   background: rgba(239,68,68,0.12);
   border-color: rgba(239,68,68,0.35);
   color: #fecaca;
 }
 
-.container{ padding:14px; max-width:1050px; margin:0 auto; }
+.container{
+  padding:14px;
+  max-width:1050px;
+  margin:0 auto;
+}
 
 .card{
   background: rgba(15,23,42,0.7);
@@ -62,27 +68,40 @@ h1{ margin:0; font-size:18px; }
 }
 
 .tableWrap{
-  overflow:auto;
+  overflow-x:auto;
   border-radius:14px;
   border:1px solid var(--line);
 }
 
+/* 🔹 TABLA CONTROLADA */
 table{
-  width: auto;                 
+  width: 100%;
   border-collapse: collapse;
-  table-layout: auto;
-  white-space: nowrap;         
+  table-layout: fixed;
   background: rgba(17,24,39,0.6);
 }
 
+/* 🔹 CONTROL DE ANCHOS */
+.c-name { width: 170px; }
+.c-num  { width: 105px; }
+.c-btn  { width: 85px; }
+
 th, td{
-  padding:10px 10px;
+  padding:10px;
   border-bottom:1px solid var(--line);
   vertical-align:middle;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* Todo alineado a la izquierda */
+table th,
+table td{
+  text-align:left !important;
 }
 
 th{
-  text-align:left;
   font-size:12px;
   color:var(--muted);
   position:sticky;
@@ -90,10 +109,10 @@ th{
   background: rgba(17,24,39,0.95);
 }
 
-input{
-  width: auto;                 /* 👈 no forzar ancho completo */
-  min-width: 60px;             /* ancho mínimo razonable */
-  max-width: 120px;            /* evita columnas gigantes */
+td input{
+  width:100%;
+  min-width:0;
+  max-width:none;
   padding:9px 10px;
   border-radius:12px;
   border:1px solid #2b3446;
@@ -101,7 +120,10 @@ input{
   color:var(--text);
   outline:none;
 }
-input:focus{ border-color:#475569; }
+
+input:focus{
+  border-color:#475569;
+}
 
 .readonly{
   color:#d1d5db;
@@ -113,6 +135,7 @@ input:focus{ border-color:#475569; }
   color:var(--muted);
   font-weight:700;
 }
+
 .totalValue{
   font-weight:800;
   font-size:16px;
@@ -124,12 +147,3 @@ input:focus{ border-color:#475569; }
   color:var(--muted);
   font-size:12px;
 }
-table th,
-table td {
-  text-align: left !important;
-}
-
-
-
-
-
