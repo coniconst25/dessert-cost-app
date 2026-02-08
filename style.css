@@ -1,15 +1,14 @@
 :root{
   /* Pastelería rosa palo */
-  --bg:#f7e9ec;           /* fondo general rosa muy suave */
-  --card:#ffffff;         /* tarjetas blancas */
-  --muted:#b08993;        /* texto secundario */
-  --text:#4a2e35;         /* texto principal cacao */
-  --line:#ead3d8;         /* bordes suaves */
-  --accent:#d88c9a;       /* rosa palo principal */
-  --danger:#c94f5d;       /* rojo frambuesa */
+  --bg:#f7e9ec;
+  --card:#ffffff;
+  --muted:#b08993;
+  --text:#4a2e35;
+  --line:#ead3d8;
+  --accent:#d88c9a;
+  --danger:#c94f5d;
 
-  /* extras suaves */
-  --soft:#fff6f8;         /* fondo alternativo */
+  --soft:#fff6f8;
   --shadow: rgba(122,44,54,0.12);
 }
 
@@ -33,6 +32,7 @@ body{
   top:0;
   backdrop-filter: blur(10px);
   background: rgba(255,255,255,0.75);
+  z-index:10;
 }
 
 h1{ margin:0; font-size:18px; }
@@ -86,7 +86,7 @@ h1{ margin:0; font-size:18px; }
   background: rgba(255,255,255,0.55);
 }
 
-/* 🔹 TABLA CONTROLADA */
+/* TABLA CONTROLADA */
 table{
   width: 100%;
   border-collapse: collapse;
@@ -94,7 +94,7 @@ table{
   background: rgba(255,255,255,0.65);
 }
 
-/* 🔹 CONTROL DE ANCHOS */
+/* CONTROL DE ANCHOS */
 .c-name { width: 170px; }
 .c-num  { width: 105px; }
 .c-btn  { width: 85px; }
@@ -108,7 +108,6 @@ th, td{
   white-space:nowrap;
 }
 
-/* Todo alineado a la izquierda */
 table th,
 table td{
   text-align:left !important;
@@ -134,7 +133,7 @@ td input{
   outline:none;
 }
 
-input:focus{
+input:focus, select:focus{
   border-color: rgba(216,140,154,0.65);
   box-shadow: 0 0 0 3px rgba(216,140,154,0.18);
 }
@@ -162,9 +161,7 @@ input:focus{
   font-size:12px;
 }
 
-/* =========================
-   Sidebar (Recipes)
-   ========================= */
+/* Sidebar (Recipes) */
 .hamburger{
   display:inline-flex;
   align-items:center;
@@ -177,9 +174,7 @@ input:focus{
   color: var(--text);
   cursor:pointer;
 }
-.hamburger:hover{
-  border-color: rgba(216,140,154,0.65);
-}
+.hamburger:hover{ border-color: rgba(216,140,154,0.65); }
 
 .brand{
   display:flex;
@@ -251,7 +246,14 @@ input:focus{
   align-items:center;
 }
 
-.drawerRow input{
+.drawerCol{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+
+.drawerCol input{
   width:100%;
   padding:10px 10px;
   border-radius:12px;
@@ -261,11 +263,54 @@ input:focus{
   outline:none;
 }
 
+.drawerGrid2{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  align-items:center;
+  margin-top:10px;
+}
+
+@media (max-width: 420px){
+  .drawerGrid2{ grid-template-columns: 1fr; }
+}
+
+.select{
+  width:100%;
+  padding:10px 10px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,0.92);
+  color:var(--text);
+  outline:none;
+}
+
+.fieldLabel{
+  font-size:12px;
+  color:var(--muted);
+  font-weight:800;
+  letter-spacing:.02em;
+}
+
+.check{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color: var(--text);
+  font-weight:700;
+  user-select:none;
+  justify-content:flex-start;
+  padding:10px 10px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,0.70);
+}
+.check input{ width:16px; height:16px; }
+
 .recipeList{
   display:flex;
   flex-direction:column;
   gap:8px;
-  margin-top:10px;
 }
 
 .recipeItem{
@@ -280,17 +325,38 @@ input:focus{
   cursor:pointer;
 }
 
-.recipeItem:hover{
-  border-color: rgba(216,140,154,0.65);
-}
+.recipeItem:hover{ border-color: rgba(216,140,154,0.65); }
 
 .recipeItem.active{
   border-color: rgba(216,140,154,0.85);
   box-shadow: 0 0 0 3px rgba(216,140,154,0.18);
 }
 
+.recipeLeft{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
 .recipeName{
   font-weight:800;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.badge{
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,0.75);
+  color: var(--muted);
+  max-width:160px;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
@@ -308,15 +374,25 @@ input:focus{
   padding:8px 10px;
   border-radius:12px;
   cursor:pointer;
+  white-space:nowrap;
 }
-.iconBtn:hover{
-  border-color: rgba(216,140,154,0.65);
-}
+.iconBtn:hover{ border-color: rgba(216,140,154,0.65); }
 
 .iconBtn.danger{
   border-color: rgba(201,79,93,0.35);
   background: rgba(201,79,93,0.10);
   color: #7a2c36;
+}
+
+.rowRight{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.favOn{
+  border-color: rgba(216,140,154,0.75);
+  background: rgba(216,140,154,0.16);
 }
 
 body.drawer-open .drawerOverlay{
@@ -328,9 +404,41 @@ body.drawer-open .drawer{
   transform: translateX(0%);
 }
 
-/* =========================
-   Pricing (margin + final price)
-   ========================= */
+/* Folders list */
+.folderListHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:10px;
+}
+
+.foldersList{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:10px;
+}
+
+.folderItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 10px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background: rgba(255,255,255,0.75);
+}
+
+.folderName{
+  font-weight:800;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+/* Pricing */
 .pricing{
   margin-top:12px;
   display:grid;
