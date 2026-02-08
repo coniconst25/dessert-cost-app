@@ -1,8 +1,7 @@
 /**
  * Dessert Cost Calculator — multi-recipe + persistent profiles (IndexedDB)
  * + Favorites + Folders + Search + Safe migration (non-destructive)
- *
- * NOTE: Recipes data remains in existing keys (v2). We only add NEW metadata keys.
+ * + Backup Export/Import JSON (safe)
  */
 
 const CURRENT_RECIPE_KEY = "dessert_current_recipe_v2";
@@ -12,9 +11,12 @@ const MARGIN_KEY         = "dessert_margin_pct_v2";
 const CLEAN_TEMPLATE_FLAG = "dessert_cleaned_legacy_template_v2";
 
 // NEW (metadata) keys — safe additions
-const META_KEY_V1        = "dessert_recipe_meta_v1";     // { [recipeName]: { favorite:boolean, folder:string|null } }
+const META_KEY_V1        = "dessert_recipe_meta_v1";     // { [recipeName]: { favorite:boolean, folder:string } }
 const FOLDERS_KEY_V1     = "dessert_folders_v1";         // [ "Tortas", "Chocolate", ... ]
 const MIGRATION_FLAG_V1  = "dessert_migration_meta_v1_done";
+
+// Backup helper key (only for re-download last)
+const LAST_BACKUP_KEY_V1 = "dessert_last_backup_json_v1";
 
 // IndexedDB
 const DB_NAME = "dessert_profiles_db_v2";
@@ -59,13 +61,10 @@ function escapeHtml(s){
 }
 
 function defaultRows(){
-  return [
-    { name:"", cost:0, amount:0, recipeAmount:0 },
-  ];
+  return [{ name:"", cost:0, amount:0, recipeAmount:0 }];
 }
 
 function isLegacyTemplate(rows){
-  // Detect the old hardcoded template: Flour + Sugar (case-insensitive)
   if (!Array.isArray(rows) || rows.length !== 2) return false;
   const a = String(rows[0]?.name || "").trim().toLowerCase();
   const b = String(rows[1]?.name || "").trim().toLowerCase();
@@ -73,7 +72,6 @@ function isLegacyTemplate(rows){
 }
 
 function maybeCleanLegacyTemplate(){
-  // One-time cleanup: remove old Flour/Sugar template from the Default recipe
   try{
     if (localStorage.getItem(CLEAN_TEMPLATE_FLAG) === "1") return;
     const raw = localStorage.getItem(getRowsKey("Default"));
@@ -83,9 +81,7 @@ function maybeCleanLegacyTemplate(){
       localStorage.removeItem(getRowsKey("Default"));
     }
     localStorage.setItem(CLEAN_TEMPLATE_FLAG, "1");
-  }catch{
-    // ignore
-  }
+  }catch{}
 }
 
 function getRowsKey(recipeName){ return ROWS_KEY_PREFIX + recipeName; }
@@ -118,7 +114,7 @@ function saveIngredientCache(cache){
 }
 
 /* =========================
-   NEW: Meta + folders (safe)
+   Meta + folders (safe)
    ========================= */
 function loadFolders(){
   try{
@@ -162,11 +158,9 @@ function ensureMetaForRecipe(meta, recipeName){
 }
 
 function runSafeMigration(){
-  // Non-destructive: only creates META_KEY_V1 / FOLDERS_KEY_V1 if missing.
   try{
     if (localStorage.getItem(MIGRATION_FLAG_V1) === "1") return;
 
-    // If already exists, just mark done
     const existingMeta = localStorage.getItem(META_KEY_V1);
     const existingFolders = localStorage.getItem(FOLDERS_KEY_V1);
     if (existingMeta || existingFolders){
@@ -174,52 +168,11 @@ function runSafeMigration(){
       return;
     }
 
-    // Try to migrate from any older (hypothetical) keys if they exist
-    // (If not, we just initialize empty without touching recipes)
-    let meta = {};
-    let folders = [];
-
-    // Example legacy keys (if user had them in some earlier version)
-    // favorites: ["RecipeA","RecipeB"]
-    try{
-      const rawFav = localStorage.getItem("dessert_favorites");
-      if (rawFav){
-        const favs = JSON.parse(rawFav);
-        if (Array.isArray(favs)){
-          for (const r of favs){
-            const name = String(r || "").trim();
-            if (!name) continue;
-            meta[name] = { favorite: true, folder: "" };
-          }
-        }
-      }
-    }catch{}
-
-    // folders mapping: { "RecipeA":"Tortas", "RecipeB":"Chocolate" }
-    try{
-      const rawMap = localStorage.getItem("dessert_folders");
-      if (rawMap){
-        const map = JSON.parse(rawMap);
-        if (map && typeof map === "object"){
-          for (const k of Object.keys(map)){
-            const rn = String(k || "").trim();
-            const fd = String(map[k] || "").trim();
-            if (!rn) continue;
-            if (!meta[rn]) meta[rn] = { favorite: false, folder: "" };
-            meta[rn].folder = fd;
-            if (fd) folders.push(fd);
-          }
-        }
-      }
-    }catch{}
-
-    folders = saveFolders(folders);
-    saveMeta(meta);
-
+    // Initialize empty, non-destructive
+    saveFolders([]);
+    saveMeta({});
     localStorage.setItem(MIGRATION_FLAG_V1, "1");
-  }catch{
-    // ignore migration errors
-  }
+  }catch{}
 }
 
 /* =========================
@@ -308,7 +261,6 @@ async function dbListRecipes(db){
 }
 
 async function dbPutItems(db, recipeName, rows){
-  // iOS/Safari safe: never await while tx open
   const existing = await dbGetItems(db, recipeName);
 
   const tx = db.transaction(STORE_ITEMS, "readwrite");
@@ -441,9 +393,7 @@ async function listAllRecipeNames(){
 
 function matchesFilters(recipeName, meta){
   const q = String(searchQuery || "").trim().toLowerCase();
-  if (q){
-    if (!recipeName.toLowerCase().includes(q)) return false;
-  }
+  if (q && !recipeName.toLowerCase().includes(q)) return false;
 
   if (favOnly){
     const m = meta[recipeName];
@@ -455,7 +405,6 @@ function matchesFilters(recipeName, meta){
     const fd = (m && typeof m.folder === "string") ? m.folder : "";
     if (fd !== filterFolder) return false;
   }
-
   return true;
 }
 
@@ -465,14 +414,9 @@ function renderRecipeList(recipeNames){
   list.innerHTML = "";
 
   const meta = loadMeta();
-
-  // Ensure meta entries exist for known recipes (safe)
-  for (const rn of recipeNames){
-    ensureMetaForRecipe(meta, rn);
-  }
+  for (const rn of recipeNames) ensureMetaForRecipe(meta, rn);
   saveMeta(meta);
 
-  // Apply filters
   const filtered = (recipeNames || []).filter(rn => matchesFilters(rn, meta));
 
   if (!filtered.length){
@@ -484,8 +428,7 @@ function renderRecipeList(recipeNames){
     return;
   }
 
-  for (let i=0;i<filtered.length;i++){
-    const name = filtered[i];
+  for (const name of filtered){
     const m = meta[name] || { favorite:false, folder:"" };
 
     const div = document.createElement("div");
@@ -513,7 +456,6 @@ function renderRecipeList(recipeNames){
     favBtn.type = "button";
     favBtn.textContent = m.favorite ? "★" : "☆";
     favBtn.title = "Favorita";
-
     favBtn.addEventListener("click", (ev) => {
       ev.stopPropagation();
       const meta2 = loadMeta();
@@ -528,29 +470,23 @@ function renderRecipeList(recipeNames){
     delBtn.className = "iconBtn danger";
     delBtn.type = "button";
     delBtn.textContent = "Delete";
-
     delBtn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
-
-      // prevent pending debounced save from resurrecting recipes
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
       try{
         localStorage.removeItem(getRowsKey(name));
         if (DB) await dbDeleteRecipe(DB, name);
 
-        // Remove meta for deleted recipe (safe)
         try{
           const meta3 = loadMeta();
           if (meta3 && meta3[name]) { delete meta3[name]; saveMeta(meta3); }
         }catch{}
 
-        // If deleted current, move to another
         if (currentRecipe === name){
           const remaining = await listAllRecipeNames();
-          if (remaining.length){
-            await switchRecipe(remaining[0], true);
-          }else{
+          if (remaining.length) await switchRecipe(remaining[0], true);
+          else{
             await switchRecipe("Default", true);
             saveRowsForRecipe("Default", rowsState);
           }
@@ -586,7 +522,7 @@ function renderRecipeList(recipeNames){
 async function refreshRecipesUI(){
   const merged = await listAllRecipeNames();
   renderRecipeList(merged);
-  refreshFolderFilterOptions(); // keep filter lists in sync
+  refreshFolderFilterOptions();
 }
 
 async function ensureRowsForRecipe(recipeName){
@@ -609,7 +545,6 @@ async function ensureRowsForRecipe(recipeName){
       return built.length ? built : defaultRows();
     }
   }
-
   return defaultRows();
 }
 
@@ -622,7 +557,6 @@ async function switchRecipe(recipeName, persist){
   rowsState = await ensureRowsForRecipe(recipeName);
   saveRowsForRecipe(recipeName, rowsState);
 
-  // Ensure meta entry exists for current recipe
   try{
     const meta = loadMeta();
     ensureMetaForRecipe(meta, currentRecipe);
@@ -641,22 +575,16 @@ function scheduleSave(){
 }
 
 async function createRecipeClean(name){
-  // Ensure the newly created recipe always starts CLEAN (even if it existed before)
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
-  // wipe local rows
   try{ localStorage.removeItem(getRowsKey(name)); }catch{}
-
-  // wipe DB profile (if available)
   if (DB){
     try{ await dbDeleteRecipe(DB, name); }catch{}
   }
 
-  // Ensure meta exists (safe)
   try{
     const meta = loadMeta();
     ensureMetaForRecipe(meta, name);
-    // Optional: if user is filtering by folder when creating, default assign to that folder
     if (filterFolder) meta[name].folder = filterFolder;
     saveMeta(meta);
   }catch{}
@@ -681,12 +609,10 @@ async function createRecipeClean(name){
    ========================= */
 function refreshFolderSelectOptions(){
   const folders = loadFolders();
-
   const currentSel = document.getElementById("currentFolderSelect");
   if (currentSel){
     const prev = currentSel.value || "";
     currentSel.innerHTML = `<option value="">(Sin carpeta)</option>` + folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
-    // restore if exists
     currentSel.value = folders.includes(prev) ? prev : "";
   }
 }
@@ -695,7 +621,6 @@ function refreshFolderFilterOptions(){
   const folders = loadFolders();
   const filterSel = document.getElementById("folderFilter");
   if (!filterSel) return;
-
   const prev = filterSel.value || "";
   filterSel.innerHTML = `<option value="">Todas</option>` + folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
   filterSel.value = folders.includes(prev) ? prev : (prev === "" ? "" : "");
@@ -749,11 +674,9 @@ function renderFoldersList(){
       const ok = confirm(`¿Eliminar la carpeta "${f}"?\n\nEsto NO elimina recetas, solo las deja sin carpeta.`);
       if (!ok) return;
 
-      // Remove folder
       let folders2 = loadFolders().filter(x => x !== f);
       folders2 = saveFolders(folders2);
 
-      // Unassign recipes from this folder (safe)
       const meta = loadMeta();
       for (const rn of Object.keys(meta)){
         if (meta[rn] && meta[rn].folder === f){
@@ -762,7 +685,6 @@ function renderFoldersList(){
       }
       saveMeta(meta);
 
-      // Reset filter if it was this folder
       if (filterFolder === f) filterFolder = "";
       const filterSel = document.getElementById("folderFilter");
       if (filterSel) filterSel.value = filterFolder;
@@ -791,7 +713,6 @@ async function refreshFoldersUI(){
 }
 
 function syncCurrentRecipeMetaUI(){
-  // Favorite star + current folder select reflect currentRecipe meta
   const meta = loadMeta();
   ensureMetaForRecipe(meta, currentRecipe);
   saveMeta(meta);
@@ -812,10 +733,265 @@ function syncCurrentRecipeMetaUI(){
 }
 
 /* =========================
+   Backup Export/Import
+   ========================= */
+function setBackupStatus(msg){
+  const el = document.getElementById("backupStatus");
+  if (el) el.textContent = msg;
+}
+
+function downloadTextFile(filename, text){
+  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function buildBackupObject(){
+  const names = await listAllRecipeNames();
+  const meta = loadMeta();
+  const folders = loadFolders();
+
+  // Ensure meta exists for listed recipes
+  for (const rn of names) ensureMetaForRecipe(meta, rn);
+
+  const marginPct = loadMarginPct();
+  const ingredientCache = loadIngredientCache();
+
+  // rows: prefer localStorage; fallback to DB reconstruct if needed
+  const recipes = {};
+
+  for (const rn of names){
+    let rows = loadRowsForRecipe(rn);
+
+    // If not in localStorage, reconstruct from DB (if possible)
+    if (!rows && DB){
+      try{
+        const items = await dbGetItems(DB, rn);
+        if (items && items.length){
+          rows = items.map(it => {
+            const c = ingredientCache[it.Ingredient] || { cost: 0, amount: 0 };
+            return {
+              name: String(it.Ingredient || ""),
+              cost: n(c.cost),
+              amount: n(c.amount),
+              recipeAmount: n(it.RecipeAmmount),
+            };
+          });
+        }
+      }catch{}
+    }
+
+    if (!rows) rows = defaultRows();
+
+    recipes[rn] = {
+      rows,
+      meta: meta[rn] || { favorite:false, folder:"" },
+    };
+  }
+
+  return {
+    app: "DessertCostCalculator",
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    currentRecipe: getCurrentRecipe(),
+    settings: {
+      marginPct,
+      ingredientCache,
+    },
+    folders,
+    recipes
+  };
+}
+
+async function exportBackup(){
+  try{
+    setBackupStatus("Generando respaldo…");
+    const obj = await buildBackupObject();
+    const json = JSON.stringify(obj, null, 2);
+
+    // store last backup for re-download
+    try{ localStorage.setItem(LAST_BACKUP_KEY_V1, json); }catch{}
+
+    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+    downloadTextFile(`dessert-backup-${stamp}.json`, json);
+
+    setBackupStatus(`Respaldo exportado (${Object.keys(obj.recipes || {}).length} recetas).`);
+  }catch(err){
+    console.error(err);
+    setBackupStatus("Error exportando respaldo.");
+    alert("No se pudo exportar el respaldo. Revisa la consola.");
+  }
+}
+
+function readFileAsText(file){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || ""));
+    fr.onerror = () => reject(fr.error || new Error("File read error"));
+    fr.readAsText(file);
+  });
+}
+
+function isValidBackupObject(obj){
+  if (!obj || typeof obj !== "object") return false;
+  if (obj.app !== "DessertCostCalculator") return false;
+  if (!Number.isFinite(obj.schemaVersion)) return false;
+  if (!obj.recipes || typeof obj.recipes !== "object") return false;
+  return true;
+}
+
+async function importBackupFromJsonText(jsonText, overwrite){
+  let obj;
+  try{
+    obj = JSON.parse(jsonText);
+  }catch{
+    alert("El archivo no es un JSON válido.");
+    return;
+  }
+
+  if (!isValidBackupObject(obj)){
+    alert("Este respaldo no corresponde a esta app o está incompleto.");
+    return;
+  }
+
+  const incomingFolders = Array.isArray(obj.folders) ? obj.folders : [];
+  const incomingRecipes = obj.recipes || {};
+
+  // Merge folders
+  const foldersMerged = saveFolders([...loadFolders(), ...incomingFolders]);
+
+  // Merge meta
+  const meta = loadMeta();
+
+  const incomingNames = Object.keys(incomingRecipes);
+  for (const rn of incomingNames){
+    const rec = incomingRecipes[rn];
+    if (!rec || typeof rec !== "object") continue;
+
+    ensureMetaForRecipe(meta, rn);
+
+    // If overwrite: meta replaced; else: merge (incoming wins if present)
+    const incMeta = rec.meta && typeof rec.meta === "object" ? rec.meta : null;
+    if (incMeta){
+      meta[rn].favorite = (typeof incMeta.favorite === "boolean") ? incMeta.favorite : meta[rn].favorite;
+      meta[rn].folder   = (typeof incMeta.folder === "string") ? incMeta.folder : meta[rn].folder;
+    }
+  }
+  saveMeta(meta);
+
+  // Import settings (merge)
+  try{
+    if (obj.settings && typeof obj.settings === "object"){
+      if (typeof obj.settings.marginPct === "number"){
+        saveMarginPct(obj.settings.marginPct);
+        const marginEl = document.getElementById("marginPct");
+        if (marginEl) marginEl.value = String(obj.settings.marginPct);
+      }
+      if (obj.settings.ingredientCache && typeof obj.settings.ingredientCache === "object"){
+        // merge cache
+        const cur = loadIngredientCache();
+        const merged = { ...cur, ...obj.settings.ingredientCache };
+        saveIngredientCache(merged);
+      }
+    }
+  }catch{}
+
+  // Import recipes rows
+  for (const rn of incomingNames){
+    const rec = incomingRecipes[rn];
+    if (!rec || typeof rec !== "object") continue;
+
+    const rows = Array.isArray(rec.rows) ? rec.rows : null;
+    if (!rows) continue;
+
+    const sanitized = rows.map(r => ({
+      name: String(r?.name ?? ""),
+      cost: n(r?.cost),
+      amount: n(r?.amount),
+      recipeAmount: n(r?.recipeAmount),
+    }));
+
+    // Merge vs overwrite at recipe level:
+    // - overwrite: replace localStorage rows & DB for that recipe
+    // - merge: if recipe exists, we still replace its rows because “merge rows” is ambiguous
+    //          (this is the safest: the backup is the source of truth for that recipe)
+    // If you want true merge rows, lo hacemos después.
+    saveRowsForRecipe(rn, sanitized);
+
+    if (DB){
+      try{ await dbPutItems(DB, rn, sanitized); }catch{}
+    }
+  }
+
+  // Set current recipe if exists
+  const desiredCurrent = String(obj.currentRecipe || "").trim();
+  if (desiredCurrent && incomingRecipes[desiredCurrent]){
+    await switchRecipe(desiredCurrent, true);
+  }else{
+    // keep current
+    await switchRecipe(getCurrentRecipe(), true);
+  }
+
+  // Refresh UI
+  await refreshFoldersUI();
+  await refreshRecipesUI();
+  syncCurrentRecipeMetaUI();
+
+  setBackupStatus(`Importado: ${incomingNames.length} recetas. Carpetas: ${foldersMerged.length}.`);
+}
+
+async function importBackup(){
+  const fileInput = document.getElementById("importFile");
+  const overwriteToggle = document.getElementById("importOverwriteToggle");
+  const overwrite = !!(overwriteToggle && overwriteToggle.checked);
+
+  if (!fileInput || !fileInput.files || !fileInput.files.length){
+    alert("Selecciona un archivo .json primero.");
+    return;
+  }
+
+  const file = fileInput.files[0];
+
+  const ok = confirm(
+    overwrite
+      ? "Vas a IMPORTAR con SOBRESCRITURA.\n\nLas recetas del respaldo reemplazarán recetas con el mismo nombre.\n\n¿Continuar?"
+      : "Vas a IMPORTAR en modo FUSIÓN.\n\nNo se borra nada; se agregan/actualizan recetas del respaldo.\n\n¿Continuar?"
+  );
+  if (!ok) return;
+
+  try{
+    setBackupStatus("Leyendo respaldo…");
+    const txt = await readFileAsText(file);
+    await importBackupFromJsonText(txt, overwrite);
+  }catch(err){
+    console.error(err);
+    setBackupStatus("Error importando respaldo.");
+    alert("No se pudo importar. Revisa la consola.");
+  }finally{
+    try{ fileInput.value = ""; }catch{}
+  }
+}
+
+function downloadLastBackup(){
+  const raw = localStorage.getItem(LAST_BACKUP_KEY_V1);
+  if (!raw){
+    alert("Aún no has exportado un respaldo en este navegador.");
+    return;
+  }
+  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+  downloadTextFile(`dessert-backup-LAST-${stamp}.json`, raw);
+}
+
+/* =========================
    Boot
    ========================= */
 document.addEventListener("DOMContentLoaded", async () => {
-  // Safe migration (metadata only)
   runSafeMigration();
 
   // Drawer listeners FIRST
@@ -827,7 +1003,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
   if (overlay) overlay.addEventListener("click", closeDrawer);
 
-  // One-time cleanup of old Flour/Sugar template for Default
   maybeCleanLegacyTemplate();
 
   // Margin init
@@ -911,9 +1086,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const input = document.getElementById("newRecipeName");
     const name = String(input ? input.value : "").trim();
     if (!name) return;
-
     await createRecipeClean(name);
-
     if (input) input.value = "";
   });
 
@@ -980,19 +1153,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       const name = String(input ? input.value : "").trim();
       if (!name) return;
 
-      const folders = saveFolders([...loadFolders(), name]);
+      saveFolders([...loadFolders(), name]);
       if (input) input.value = "";
 
-      refreshFolderSelectOptions();
-      refreshFolderFilterOptions();
-      renderFoldersList();
-
-      // Optional: if filter is empty, auto filter to newly created folder
-      // filterFolder = name; const ff = document.getElementById("folderFilter"); if (ff) ff.value = name;
-
+      await refreshFoldersUI();
       await refreshRecipesUI();
     });
   }
+
+  // Backup buttons
+  const exportBtn = document.getElementById("exportBackupBtn");
+  if (exportBtn) exportBtn.addEventListener("click", exportBackup);
+
+  const importBtn = document.getElementById("importBackupBtn");
+  if (importBtn) importBtn.addEventListener("click", importBackup);
+
+  const downloadLastBtn = document.getElementById("downloadLastBackupBtn");
+  if (downloadLastBtn) downloadLastBtn.addEventListener("click", downloadLastBackup);
 
   // Table events
   const tbody = document.getElementById("tbody");
@@ -1050,13 +1227,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Open DB (non-blocking)
   try{
     DB = await openDB();
-    // If Default rows were cleaned from localStorage, also clean its DB profile
-    try{
-      const rawDef = localStorage.getItem(getRowsKey("Default"));
-      if (!rawDef) {
-        await dbDeleteRecipe(DB, "Default");
-      }
-    }catch{}
   }catch(err){
     console.warn("IndexedDB not available:", err);
     DB = null;
@@ -1067,7 +1237,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   rowsState = await ensureRowsForRecipe(currentRecipe);
   saveRowsForRecipe(currentRecipe, rowsState);
 
-  // Ensure meta exists for current recipe
   try{
     const meta = loadMeta();
     ensureMetaForRecipe(meta, currentRecipe);
@@ -1077,8 +1246,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   setRecipeTitle();
   renderTable();
 
-  // UI refresh
   await refreshFoldersUI();
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
+
+  setBackupStatus("Listo. Exporta un JSON cuando quieras.");
 });
