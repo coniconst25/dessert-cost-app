@@ -12,10 +12,41 @@
 </head>
 <body>
 
+<!-- Sidebar overlay + drawer -->
+<div id="drawerOverlay" class="drawerOverlay" aria-hidden="true"></div>
+
+<aside id="drawer" class="drawer" aria-label="Recipes">
+  <div class="drawerHeader">
+    <p class="drawerTitle">Recipes</p>
+    <button id="closeDrawerBtn" class="iconBtn" type="button" aria-label="Close">✕</button>
+  </div>
+
+  <div class="drawerBody">
+    <div class="drawerCard">
+      <div class="drawerRow">
+        <input id="newRecipeName" placeholder="New recipe name (e.g., Kuchen)" />
+        <button id="createRecipeBtn" class="btn" type="button">Create</button>
+      </div>
+      <div class="smallNote">Tip: Open a recipe, then press <b>Save</b> to store its ingredients.</div>
+    </div>
+
+    <div class="drawerCard">
+      <div class="drawerRow" style="justify-content:space-between; gap:10px;">
+        <div class="pill">Current recipe</div>
+        <button id="saveRecipeBtn" class="btn" type="button">Save</button>
+      </div>
+      <div id="recipeList" class="recipeList" role="list"></div>
+    </div>
+  </div>
+</aside>
+
 <header class="topbar">
-  <div>
-    <h1>Dessert Cost Calculator</h1>
-    <p class="sub">Ingredient → unit cost → recipe cost</p>
+  <div class="brand">
+    <button id="openDrawerBtn" class="hamburger" type="button" aria-label="Open menu">☰</button>
+    <div>
+      <h1 id="recipeTitle">Dessert Cost Calculator</h1>
+      <p class="sub">Ingredient → unit cost → recipe cost</p>
+    </div>
   </div>
   <div class="actions">
     <button id="addRowBtn" class="btn">+ Add</button>
@@ -63,6 +94,24 @@
         </tfoot>
 
       </table>
+    </div>
+
+    <!-- Pricing / Margin -->
+    <div class="pricing">
+      <div class="drawerCard">
+        <div class="kv">
+          <div class="k">Profit margin (%)</div>
+          <input id="marginPct" inputmode="decimal" value="30" style="max-width:120px;" />
+        </div>
+        <div class="smallNote">Final price is rounded to an integer.</div>
+      </div>
+
+      <div class="drawerCard">
+        <div class="kv">
+          <div class="k">Final sale price</div>
+          <div class="v" id="finalPriceCell">$0</div>
+        </div>
+      </div>
     </div>
 
     <div class="hint">
