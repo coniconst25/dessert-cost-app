@@ -90,8 +90,6 @@ th{
   background: rgba(17,24,39,0.95);
 }
 
-td.num, th.num{ text-align:left; }
-
 input{
   width:100%;
   padding:9px 10px;
@@ -128,6 +126,7 @@ table th,
 table td {
   text-align: left !important;
 }
+
 
 
 
