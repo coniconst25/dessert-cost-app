@@ -1,19 +1,25 @@
 /**
  * Dessert Cost Calculator — multi-recipe + persistent profiles (IndexedDB)
- * iOS/Safari safe: no await inside IDB transactions + robust DOM boot
+ * Robust drawer + cache-proof + iOS/Safari safe.
  */
 
-const CURRENT_RECIPE_KEY = "dessert_current_recipe_v1";
-const ROWS_KEY_PREFIX    = "dessert_rows__v1__";            // + recipeName
-const ING_CACHE_KEY      = "dessert_ingredient_cache_v1";   // { [Ingredient]: {cost, amount} }
-const MARGIN_KEY         = "dessert_margin_pct_v1";
+const CURRENT_RECIPE_KEY = "dessert_current_recipe_v2";
+const ROWS_KEY_PREFIX    = "dessert_rows__v2__";
+const ING_CACHE_KEY      = "dessert_ingredient_cache_v2";
+const MARGIN_KEY         = "dessert_margin_pct_v2";
 
-// IndexedDB (profiles)
-const DB_NAME = "dessert_profiles_db_v1";
+// IndexedDB
+const DB_NAME = "dessert_profiles_db_v2";
 const DB_VER  = 1;
 const STORE_ITEMS = "recipe_items"; // key = `${recipeName}::${Ingredient}`
 
-// ---------------- Helpers ----------------
+let DB = null;
+let currentRecipe = getCurrentRecipe();
+let rowsState = null;
+
+// debounce save
+let saveTimer = null;
+
 function n(v){
   if (v === null || v === undefined) return 0;
   const s = String(v).trim().replace(",", ".");
@@ -25,19 +31,19 @@ function money(v){
   const x = Math.round(v * 100) / 100;
   return "$" + x.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
-
 function moneyInt(v){
   const x = Math.round(v);
   return "$" + x.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 function escapeHtml(s){
+  // Avoid replaceAll compatibility issues
   return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
 }
 
 function defaultRows(){
@@ -47,28 +53,20 @@ function defaultRows(){
   ];
 }
 
-function getRowsKey(recipeName){
-  return ROWS_KEY_PREFIX + recipeName;
-}
+function getRowsKey(recipeName){ return ROWS_KEY_PREFIX + recipeName; }
 
 function getCurrentRecipe(){
   const s = (localStorage.getItem(CURRENT_RECIPE_KEY) || "").trim();
   return s || "Default";
 }
-
-function setCurrentRecipe(name){
-  localStorage.setItem(CURRENT_RECIPE_KEY, name);
-}
+function setCurrentRecipe(name){ localStorage.setItem(CURRENT_RECIPE_KEY, name); }
 
 function loadMarginPct(){
   const raw = localStorage.getItem(MARGIN_KEY);
   const val = (raw === null) ? 30 : n(raw);
   return Number.isFinite(val) ? val : 30;
 }
-
-function saveMarginPct(v){
-  localStorage.setItem(MARGIN_KEY, String(v));
-}
+function saveMarginPct(v){ localStorage.setItem(MARGIN_KEY, String(v)); }
 
 function loadIngredientCache(){
   try{
@@ -80,7 +78,6 @@ function loadIngredientCache(){
     return {};
   }
 }
-
 function saveIngredientCache(cache){
   localStorage.setItem(ING_CACHE_KEY, JSON.stringify(cache));
 }
@@ -101,7 +98,6 @@ function loadRowsForRecipe(recipeName){
     return null;
   }
 }
-
 function saveRowsForRecipe(recipeName, rows){
   localStorage.setItem(getRowsKey(recipeName), JSON.stringify(rows));
 }
@@ -111,18 +107,22 @@ function computeRow(r){
   const recipeCost = unit * r.recipeAmount;
   return { unit, recipeCost };
 }
-
 function computeTotal(rows){
   let total = 0;
-  for (const r of rows){
-    total += computeRow(r).recipeCost;
+  for (let i=0;i<rows.length;i++){
+    total += computeRow(rows[i]).recipeCost;
   }
   return total;
 }
 
+// ---------------- Drawer ----------------
+function openDrawer(){ document.body.classList.add("drawer-open"); }
+function closeDrawer(){ document.body.classList.remove("drawer-open"); }
+
 // ---------------- IndexedDB ----------------
 function openDB(){
   return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) return reject(new Error("IndexedDB not available"));
     const req = indexedDB.open(DB_NAME, DB_VER);
 
     req.onupgradeneeded = () => {
@@ -155,7 +155,8 @@ async function dbGetItems(db, recipeName){
 async function dbListRecipes(db){
   const all = await dbGetAll(db);
   const set = new Set();
-  for (const it of all){
+  for (let i=0;i<all.length;i++){
+    const it = all[i];
     if (it && typeof it.recipeName === "string" && it.recipeName.trim()){
       set.add(it.recipeName);
     }
@@ -164,17 +165,18 @@ async function dbListRecipes(db){
 }
 
 async function dbPutItems(db, recipeName, rows){
-  // IMPORTANT (iOS/Safari): never await while tx is open
+  // iOS/Safari safe: never await while tx open
   const existing = await dbGetItems(db, recipeName);
 
   const tx = db.transaction(STORE_ITEMS, "readwrite");
   const store = tx.objectStore(STORE_ITEMS);
 
-  for (const it of existing){
-    store.delete(it.key);
+  for (let i=0;i<existing.length;i++){
+    store.delete(existing[i].key);
   }
 
-  for (const r of rows){
+  for (let i=0;i<rows.length;i++){
+    const r = rows[i];
     const Ingredient = String(r.name || "").trim();
     if (!Ingredient) continue;
     const RecipeAmmount = n(r.recipeAmount);
@@ -190,14 +192,13 @@ async function dbPutItems(db, recipeName, rows){
 }
 
 async function dbDeleteRecipe(db, recipeName){
-  // IMPORTANT (iOS/Safari): never await while tx is open
   const existing = await dbGetItems(db, recipeName);
 
   const tx = db.transaction(STORE_ITEMS, "readwrite");
   const store = tx.objectStore(STORE_ITEMS);
 
-  for (const it of existing){
-    store.delete(it.key);
+  for (let i=0;i<existing.length;i++){
+    store.delete(existing[i].key);
   }
 
   return new Promise((resolve, reject) => {
@@ -207,23 +208,7 @@ async function dbDeleteRecipe(db, recipeName){
   });
 }
 
-// ---------------- App state ----------------
-let DB = null;
-let currentRecipe = getCurrentRecipe();
-let rowsState = null;
-
-// debounce save
-let saveTimer = null;
-function scheduleSave(){
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    saveRowsForRecipe(currentRecipe, rowsState);
-  }, 250);
-}
-
-function openDrawer(){ document.body.classList.add("drawer-open"); }
-function closeDrawer(){ document.body.classList.remove("drawer-open"); }
-
+// ---------------- UI helpers ----------------
 function setRecipeTitle(){
   const el = document.getElementById("recipeTitle");
   if (el) el.textContent = currentRecipe;
@@ -231,7 +216,8 @@ function setRecipeTitle(){
 
 function updateIngredientCacheFromRows(rows){
   const cache = loadIngredientCache();
-  for (const r of rows){
+  for (let i=0;i<rows.length;i++){
+    const r = rows[i];
     const name = String(r.name || "").trim();
     if (!name) continue;
     if (r.cost > 0 || r.amount > 0){
@@ -272,7 +258,9 @@ function updateTotalAndPricing(rows){
   const totalCell = document.getElementById("totalCell");
   if (totalCell) totalCell.textContent = money(total);
 
-  const marginPct = n(document.getElementById("marginPct")?.value);
+  const marginEl = document.getElementById("marginPct");
+  const marginPct = marginEl ? n(marginEl.value) : 0;
+
   const finalPrice = Math.round(total * (1 + marginPct / 100));
   const finalCell = document.getElementById("finalPriceCell");
   if (finalCell) finalCell.textContent = moneyInt(finalPrice);
@@ -294,6 +282,20 @@ function renderTable(){
   updateTotalAndPricing(rowsState);
 }
 
+async function listAllRecipeNames(){
+  const names = DB ? await dbListRecipes(DB) : [];
+  const set = new Set(names);
+
+  for (let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if (k && k.startsWith(ROWS_KEY_PREFIX)){
+      const rn = k.slice(ROWS_KEY_PREFIX.length);
+      if (rn) set.add(rn);
+    }
+  }
+  return Array.from(set).sort((a,b)=>a.localeCompare(b));
+}
+
 function renderRecipeList(recipeNames){
   const list = document.getElementById("recipeList");
   if (!list) return;
@@ -308,7 +310,9 @@ function renderRecipeList(recipeNames){
     return;
   }
 
-  for (const name of recipeNames){
+  for (let i=0;i<recipeNames.length;i++){
+    const name = recipeNames[i];
+
     const div = document.createElement("div");
     div.className = "recipeItem" + (name === currentRecipe ? " active" : "");
     div.setAttribute("role", "listitem");
@@ -326,7 +330,6 @@ function renderRecipeList(recipeNames){
     delBtn.className = "iconBtn danger";
     delBtn.type = "button";
     delBtn.textContent = "Delete";
-    delBtn.title = "Delete recipe";
 
     delBtn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
@@ -335,12 +338,10 @@ function renderRecipeList(recipeNames){
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
       try{
-        // remove full rows
         localStorage.removeItem(getRowsKey(name));
-        // remove profile
         if (DB) await dbDeleteRecipe(DB, name);
 
-        // if we deleted current, switch to another
+        // If deleted current, move to another
         if (currentRecipe === name){
           const remaining = await listAllRecipeNames();
           if (remaining.length){
@@ -351,7 +352,9 @@ function renderRecipeList(recipeNames){
           }
         }
 
-        await refreshRecipesUI(); // reflect immediately (no need to close menu)
+        // You requested: close menu to reflect deletion
+        closeDrawer();
+        await refreshRecipesUI();
       }catch(err){
         console.error("Delete recipe failed:", err);
         alert("No se pudo eliminar la receta. Intenta nuevamente.");
@@ -364,28 +367,12 @@ function renderRecipeList(recipeNames){
 
     div.addEventListener("click", async () => {
       await switchRecipe(name, true);
-      // opcional: si quieres cerrar al abrir, descomenta la siguiente línea
-      // closeDrawer();
+      closeDrawer();
       await refreshRecipesUI();
     });
 
     list.appendChild(div);
   }
-}
-
-async function listAllRecipeNames(){
-  // DB recipes
-  const names = (DB) ? await dbListRecipes(DB) : [];
-  // localStorage recipes
-  const set = new Set(names);
-  for (let i = 0; i < localStorage.length; i++){
-    const k = localStorage.key(i);
-    if (k && k.startsWith(ROWS_KEY_PREFIX)){
-      const rn = k.slice(ROWS_KEY_PREFIX.length);
-      if (rn) set.add(rn);
-    }
-  }
-  return Array.from(set).sort((a,b)=>a.localeCompare(b));
 }
 
 async function refreshRecipesUI(){
@@ -397,7 +384,6 @@ async function ensureRowsForRecipe(recipeName){
   const fromLS = loadRowsForRecipe(recipeName);
   if (fromLS) return fromLS;
 
-  // build from DB (Ingredient + RecipeAmmount) + ingredient cache for cost/amount
   if (DB){
     const items = await dbGetItems(DB, recipeName);
     if (items.length){
@@ -419,7 +405,6 @@ async function ensureRowsForRecipe(recipeName){
 }
 
 async function switchRecipe(recipeName, persist){
-  // prevent pending debounced save from writing into wrong recipe
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
   currentRecipe = recipeName;
@@ -431,38 +416,50 @@ async function switchRecipe(recipeName, persist){
   renderTable();
 }
 
-// ---------------- Boot (DOM Ready) ----------------
-document.addEventListener("DOMContentLoaded", async () => {
-  // Drawer controls (safe if elements exist)
-  document.getElementById("openDrawerBtn")?.addEventListener("click", openDrawer);
-  document.getElementById("closeDrawerBtn")?.addEventListener("click", closeDrawer);
-  document.getElementById("drawerOverlay")?.addEventListener("click", closeDrawer);
+function scheduleSave(){
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try{ saveRowsForRecipe(currentRecipe, rowsState); }catch(e){}
+  }, 250);
+}
 
-  // Margin init
+// ---------------- Boot ----------------
+document.addEventListener("DOMContentLoaded", async () => {
+  // 1) Drawer listeners FIRST (so menu opens even if later code fails)
+  const openBtn = document.getElementById("openDrawerBtn");
+  const closeBtn = document.getElementById("closeDrawerBtn");
+  const overlay = document.getElementById("drawerOverlay");
+
+  if (openBtn) openBtn.addEventListener("click", openDrawer);
+  if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
+  if (overlay) overlay.addEventListener("click", closeDrawer);
+
+  // 2) Margin init
   const marginEl = document.getElementById("marginPct");
   if (marginEl){
     marginEl.value = String(loadMarginPct());
     marginEl.addEventListener("input", (e) => {
       saveMarginPct(n(e.target.value));
-      updateTotalAndPricing(rowsState);
+      if (rowsState) updateTotalAndPricing(rowsState);
     });
   }
 
-  // Buttons
-  document.getElementById("addRowBtn")?.addEventListener("click", () => {
+  // 3) Buttons
+  const addRowBtn = document.getElementById("addRowBtn");
+  if (addRowBtn) addRowBtn.addEventListener("click", () => {
     rowsState.push({ name:"", cost:0, amount:0, recipeAmount:0 });
     saveRowsForRecipe(currentRecipe, rowsState);
 
     const tbody = document.getElementById("tbody");
     const idx = rowsState.length - 1;
-    tbody?.insertAdjacentHTML("beforeend", buildRowHTML(rowsState[idx], idx));
-    updateTotalAndPricing(rowsState);
+    if (tbody) tbody.insertAdjacentHTML("beforeend", buildRowHTML(rowsState[idx], idx));
 
-    tbody?.querySelector(`input[data-k="name"][data-i="${idx}"]`)?.focus();
+    updateTotalAndPricing(rowsState);
     scheduleSave();
   });
 
-  document.getElementById("resetBtn")?.addEventListener("click", () => {
+  const resetBtn = document.getElementById("resetBtn");
+  if (resetBtn) resetBtn.addEventListener("click", () => {
     rowsState = defaultRows();
     saveRowsForRecipe(currentRecipe, rowsState);
     renderTable();
@@ -470,21 +467,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateIngredientCacheFromRows(rowsState);
   });
 
-  // Create recipe
-  document.getElementById("createRecipeBtn")?.addEventListener("click", async () => {
+  const createBtn = document.getElementById("createRecipeBtn");
+  if (createBtn) createBtn.addEventListener("click", async () => {
     const input = document.getElementById("newRecipeName");
-    const name = String(input?.value || "").trim();
+    const name = String(input ? input.value : "").trim();
     if (!name) return;
 
     await switchRecipe(name, true);
-    saveRowsForRecipe(name, rowsState);
     if (input) input.value = "";
     await refreshRecipesUI();
+    closeDrawer();
   });
 
-  // Save recipe profile to IndexedDB
-  document.getElementById("saveRecipeBtn")?.addEventListener("click", async () => {
-    if (!DB) return;
+  const saveBtn = document.getElementById("saveRecipeBtn");
+  if (saveBtn) saveBtn.addEventListener("click", async () => {
+    if (!DB) {
+      alert("IndexedDB no disponible en este navegador.");
+      return;
+    }
     try{
       updateIngredientCacheFromRows(rowsState);
       await dbPutItems(DB, currentRecipe, rowsState);
@@ -495,59 +495,60 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Table input delegation
-  document.getElementById("tbody")?.addEventListener("input", (e) => {
-    const t = e.target;
-    if (!(t instanceof HTMLInputElement)) return;
+  // 4) Table events
+  const tbody = document.getElementById("tbody");
+  if (tbody){
+    tbody.addEventListener("input", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
 
-    const k = t.dataset.k;
-    const i = Number(t.dataset.i);
-    if (!k || !Number.isFinite(i)) return;
-    if (!rowsState[i]) return;
+      const k = t.dataset.k;
+      const i = Number(t.dataset.i);
+      if (!k || !Number.isFinite(i) || !rowsState[i]) return;
 
-    if (k === "name") rowsState[i].name = t.value;
-    if (k === "cost") rowsState[i].cost = n(t.value);
-    if (k === "amount") rowsState[i].amount = n(t.value);
-    if (k === "recipeAmount") rowsState[i].recipeAmount = n(t.value);
+      if (k === "name") rowsState[i].name = t.value;
+      if (k === "cost") rowsState[i].cost = n(t.value);
+      if (k === "amount") rowsState[i].amount = n(t.value);
+      if (k === "recipeAmount") rowsState[i].recipeAmount = n(t.value);
 
-    updateComputedForIndex(rowsState, i);
-    updateTotalAndPricing(rowsState);
+      updateComputedForIndex(rowsState, i);
+      updateTotalAndPricing(rowsState);
 
-    scheduleSave();
-    updateIngredientCacheFromRows(rowsState);
-  });
-
-  document.getElementById("tbody")?.addEventListener("click", (e) => {
-    const btn = e.target;
-    if (!(btn instanceof HTMLElement)) return;
-
-    const del = btn.getAttribute("data-del");
-    if (del === null) return;
-
-    const idx = Number(del);
-    if (!Number.isFinite(idx)) return;
-
-    rowsState.splice(idx, 1);
-
-    const tr = document.querySelector(`#tbody tr[data-row="${idx}"]`);
-    tr?.remove();
-
-    if (!rowsState.length){
-      rowsState = defaultRows();
-      saveRowsForRecipe(currentRecipe, rowsState);
-      renderTable();
       scheduleSave();
       updateIngredientCacheFromRows(rowsState);
-      return;
-    }
+    });
 
-    renumberDOMIndices();
-    saveRowsForRecipe(currentRecipe, rowsState);
-    updateTotalAndPricing(rowsState);
-    scheduleSave();
-  });
+    tbody.addEventListener("click", (e) => {
+      const btn = e.target;
+      if (!(btn instanceof HTMLElement)) return;
+      const del = btn.getAttribute("data-del");
+      if (del === null) return;
 
-  // Open DB
+      const idx = Number(del);
+      if (!Number.isFinite(idx)) return;
+
+      rowsState.splice(idx, 1);
+
+      const tr = document.querySelector(`#tbody tr[data-row="${idx}"]`);
+      if (tr) tr.remove();
+
+      if (!rowsState.length){
+        rowsState = defaultRows();
+        saveRowsForRecipe(currentRecipe, rowsState);
+        renderTable();
+        scheduleSave();
+        updateIngredientCacheFromRows(rowsState);
+        return;
+      }
+
+      renumberDOMIndices();
+      saveRowsForRecipe(currentRecipe, rowsState);
+      updateTotalAndPricing(rowsState);
+      scheduleSave();
+    });
+  }
+
+  // 5) Open DB (non-blocking behavior: even if this fails, menu still works)
   try{
     DB = await openDB();
   }catch(err){
@@ -555,13 +556,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     DB = null;
   }
 
-  // Load current recipe
+  // 6) Load initial recipe
   currentRecipe = getCurrentRecipe();
   rowsState = await ensureRowsForRecipe(currentRecipe);
   saveRowsForRecipe(currentRecipe, rowsState);
 
   setRecipeTitle();
   renderTable();
-
   await refreshRecipesUI();
 });
