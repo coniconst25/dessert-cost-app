@@ -68,10 +68,10 @@ h1{ margin:0; font-size:18px; }
 }
 
 table{
-  width:100%;
+  width: auto;                 
   border-collapse: collapse;
   table-layout: auto;
-  min-width: 0px; /* allows horizontal scroll on phones */
+  white-space: nowrap;         
   background: rgba(17,24,39,0.6);
 }
 
@@ -91,7 +91,9 @@ th{
 }
 
 input{
-  width:100%;
+  width: auto;                 /* 👈 no forzar ancho completo */
+  min-width: 60px;             /* ancho mínimo razonable */
+  max-width: 120px;            /* evita columnas gigantes */
   padding:9px 10px;
   border-radius:12px;
   border:1px solid #2b3446;
@@ -126,6 +128,7 @@ table th,
 table td {
   text-align: left !important;
 }
+
 
 
 
