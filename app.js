@@ -1,6 +1,8 @@
 /**
  * Dessert Cost Calculator — multi-recipe + persistent profiles (IndexedDB)
- * Robust drawer + cache-proof + iOS/Safari safe.
+ * + Favorites + Folders + Search + Safe migration (non-destructive)
+ *
+ * NOTE: Recipes data remains in existing keys (v2). We only add NEW metadata keys.
  */
 
 const CURRENT_RECIPE_KEY = "dessert_current_recipe_v2";
@@ -8,6 +10,11 @@ const ROWS_KEY_PREFIX    = "dessert_rows__v2__";
 const ING_CACHE_KEY      = "dessert_ingredient_cache_v2";
 const MARGIN_KEY         = "dessert_margin_pct_v2";
 const CLEAN_TEMPLATE_FLAG = "dessert_cleaned_legacy_template_v2";
+
+// NEW (metadata) keys — safe additions
+const META_KEY_V1        = "dessert_recipe_meta_v1";     // { [recipeName]: { favorite:boolean, folder:string|null } }
+const FOLDERS_KEY_V1     = "dessert_folders_v1";         // [ "Tortas", "Chocolate", ... ]
+const MIGRATION_FLAG_V1  = "dessert_migration_meta_v1_done";
 
 // IndexedDB
 const DB_NAME = "dessert_profiles_db_v2";
@@ -17,6 +24,11 @@ const STORE_ITEMS = "recipe_items"; // key = `${recipeName}::${Ingredient}`
 let DB = null;
 let currentRecipe = getCurrentRecipe();
 let rowsState = null;
+
+// Drawer filter state (UI-only; not persisted)
+let searchQuery = "";
+let filterFolder = "";
+let favOnly = false;
 
 // debounce save
 let saveTimer = null;
@@ -38,7 +50,6 @@ function moneyInt(v){
 }
 
 function escapeHtml(s){
-  // Avoid replaceAll compatibility issues
   return String(s)
     .replace(/&/g,"&amp;")
     .replace(/</g,"&lt;")
@@ -63,7 +74,6 @@ function isLegacyTemplate(rows){
 
 function maybeCleanLegacyTemplate(){
   // One-time cleanup: remove old Flour/Sugar template from the Default recipe
-  // (we do NOT auto-delete other recipes to avoid wiping real user data)
   try{
     if (localStorage.getItem(CLEAN_TEMPLATE_FLAG) === "1") return;
     const raw = localStorage.getItem(getRowsKey("Default"));
@@ -77,7 +87,6 @@ function maybeCleanLegacyTemplate(){
     // ignore
   }
 }
-
 
 function getRowsKey(recipeName){ return ROWS_KEY_PREFIX + recipeName; }
 
@@ -108,6 +117,114 @@ function saveIngredientCache(cache){
   localStorage.setItem(ING_CACHE_KEY, JSON.stringify(cache));
 }
 
+/* =========================
+   NEW: Meta + folders (safe)
+   ========================= */
+function loadFolders(){
+  try{
+    const raw = localStorage.getItem(FOLDERS_KEY_V1);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter(x => typeof x === "string" && x.trim()).map(s => s.trim()) : [];
+  }catch{
+    return [];
+  }
+}
+function saveFolders(folders){
+  const clean = Array.from(new Set((folders || []).map(s => String(s || "").trim()).filter(Boolean)))
+    .sort((a,b)=>a.localeCompare(b));
+  localStorage.setItem(FOLDERS_KEY_V1, JSON.stringify(clean));
+  return clean;
+}
+
+function loadMeta(){
+  try{
+    const raw = localStorage.getItem(META_KEY_V1);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    return (obj && typeof obj === "object") ? obj : {};
+  }catch{
+    return {};
+  }
+}
+function saveMeta(meta){
+  localStorage.setItem(META_KEY_V1, JSON.stringify(meta || {}));
+}
+
+function ensureMetaForRecipe(meta, recipeName){
+  if (!meta[recipeName] || typeof meta[recipeName] !== "object"){
+    meta[recipeName] = { favorite: false, folder: "" };
+  }else{
+    if (typeof meta[recipeName].favorite !== "boolean") meta[recipeName].favorite = false;
+    if (typeof meta[recipeName].folder !== "string") meta[recipeName].folder = "";
+  }
+  return meta;
+}
+
+function runSafeMigration(){
+  // Non-destructive: only creates META_KEY_V1 / FOLDERS_KEY_V1 if missing.
+  try{
+    if (localStorage.getItem(MIGRATION_FLAG_V1) === "1") return;
+
+    // If already exists, just mark done
+    const existingMeta = localStorage.getItem(META_KEY_V1);
+    const existingFolders = localStorage.getItem(FOLDERS_KEY_V1);
+    if (existingMeta || existingFolders){
+      localStorage.setItem(MIGRATION_FLAG_V1, "1");
+      return;
+    }
+
+    // Try to migrate from any older (hypothetical) keys if they exist
+    // (If not, we just initialize empty without touching recipes)
+    let meta = {};
+    let folders = [];
+
+    // Example legacy keys (if user had them in some earlier version)
+    // favorites: ["RecipeA","RecipeB"]
+    try{
+      const rawFav = localStorage.getItem("dessert_favorites");
+      if (rawFav){
+        const favs = JSON.parse(rawFav);
+        if (Array.isArray(favs)){
+          for (const r of favs){
+            const name = String(r || "").trim();
+            if (!name) continue;
+            meta[name] = { favorite: true, folder: "" };
+          }
+        }
+      }
+    }catch{}
+
+    // folders mapping: { "RecipeA":"Tortas", "RecipeB":"Chocolate" }
+    try{
+      const rawMap = localStorage.getItem("dessert_folders");
+      if (rawMap){
+        const map = JSON.parse(rawMap);
+        if (map && typeof map === "object"){
+          for (const k of Object.keys(map)){
+            const rn = String(k || "").trim();
+            const fd = String(map[k] || "").trim();
+            if (!rn) continue;
+            if (!meta[rn]) meta[rn] = { favorite: false, folder: "" };
+            meta[rn].folder = fd;
+            if (fd) folders.push(fd);
+          }
+        }
+      }
+    }catch{}
+
+    folders = saveFolders(folders);
+    saveMeta(meta);
+
+    localStorage.setItem(MIGRATION_FLAG_V1, "1");
+  }catch{
+    // ignore migration errors
+  }
+}
+
+/* =========================
+   Rows load/save
+   ========================= */
 function loadRowsForRecipe(recipeName){
   try{
     const raw = localStorage.getItem(getRowsKey(recipeName));
@@ -141,11 +258,11 @@ function computeTotal(rows){
   return total;
 }
 
-// ---------------- Drawer ----------------
+// Drawer open/close
 function openDrawer(){ document.body.classList.add("drawer-open"); }
 function closeDrawer(){ document.body.classList.remove("drawer-open"); }
 
-// ---------------- IndexedDB ----------------
+// IndexedDB
 function openDB(){
   return new Promise((resolve, reject) => {
     if (!("indexedDB" in window)) return reject(new Error("IndexedDB not available"));
@@ -234,7 +351,7 @@ async function dbDeleteRecipe(db, recipeName){
   });
 }
 
-// ---------------- UI helpers ----------------
+// UI helpers
 function setRecipeTitle(){
   const el = document.getElementById("recipeTitle");
   if (el) el.textContent = currentRecipe;
@@ -322,35 +439,90 @@ async function listAllRecipeNames(){
   return Array.from(set).sort((a,b)=>a.localeCompare(b));
 }
 
+function matchesFilters(recipeName, meta){
+  const q = String(searchQuery || "").trim().toLowerCase();
+  if (q){
+    if (!recipeName.toLowerCase().includes(q)) return false;
+  }
+
+  if (favOnly){
+    const m = meta[recipeName];
+    if (!m || !m.favorite) return false;
+  }
+
+  if (filterFolder){
+    const m = meta[recipeName];
+    const fd = (m && typeof m.folder === "string") ? m.folder : "";
+    if (fd !== filterFolder) return false;
+  }
+
+  return true;
+}
+
 function renderRecipeList(recipeNames){
   const list = document.getElementById("recipeList");
   if (!list) return;
   list.innerHTML = "";
 
-  if (!recipeNames || !recipeNames.length){
+  const meta = loadMeta();
+
+  // Ensure meta entries exist for known recipes (safe)
+  for (const rn of recipeNames){
+    ensureMetaForRecipe(meta, rn);
+  }
+  saveMeta(meta);
+
+  // Apply filters
+  const filtered = (recipeNames || []).filter(rn => matchesFilters(rn, meta));
+
+  if (!filtered.length){
     const empty = document.createElement("div");
     empty.className = "pill";
     empty.style.padding = "10px";
-    empty.textContent = "No recipes saved yet. Create one above.";
+    empty.textContent = "No hay recetas con esos filtros.";
     list.appendChild(empty);
     return;
   }
 
-  for (let i=0;i<recipeNames.length;i++){
-    const name = recipeNames[i];
+  for (let i=0;i<filtered.length;i++){
+    const name = filtered[i];
+    const m = meta[name] || { favorite:false, folder:"" };
 
     const div = document.createElement("div");
     div.className = "recipeItem" + (name === currentRecipe ? " active" : "");
     div.setAttribute("role", "listitem");
 
     const left = document.createElement("div");
+    left.className = "recipeLeft";
     left.style.minWidth = "0";
-    left.innerHTML = `<div class="recipeName">${escapeHtml(name)}</div><div class="pill">open</div>`;
+
+    const star = m.favorite ? "★" : "☆";
+    const folderBadge = m.folder ? `<span class="badge">${escapeHtml(m.folder)}</span>` : `<span class="badge">(Sin carpeta)</span>`;
+
+    left.innerHTML =
+      `<div class="recipeName"><span>${escapeHtml(name)}</span> <span class="pill">${star}</span></div>` +
+      `<div>${folderBadge}</div>`;
 
     const right = document.createElement("div");
     right.style.display = "flex";
     right.style.gap = "8px";
     right.style.alignItems = "center";
+
+    const favBtn = document.createElement("button");
+    favBtn.className = "iconBtn" + (m.favorite ? " favOn" : "");
+    favBtn.type = "button";
+    favBtn.textContent = m.favorite ? "★" : "☆";
+    favBtn.title = "Favorita";
+
+    favBtn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const meta2 = loadMeta();
+      ensureMetaForRecipe(meta2, name);
+      meta2[name].favorite = !meta2[name].favorite;
+      saveMeta(meta2);
+      syncCurrentRecipeMetaUI();
+      refreshRecipesUI();
+    });
 
     const delBtn = document.createElement("button");
     delBtn.className = "iconBtn danger";
@@ -367,6 +539,12 @@ function renderRecipeList(recipeNames){
         localStorage.removeItem(getRowsKey(name));
         if (DB) await dbDeleteRecipe(DB, name);
 
+        // Remove meta for deleted recipe (safe)
+        try{
+          const meta3 = loadMeta();
+          if (meta3 && meta3[name]) { delete meta3[name]; saveMeta(meta3); }
+        }catch{}
+
         // If deleted current, move to another
         if (currentRecipe === name){
           const remaining = await listAllRecipeNames();
@@ -378,16 +556,19 @@ function renderRecipeList(recipeNames){
           }
         }
 
-        // You requested: close menu to reflect deletion
         closeDrawer();
         await refreshRecipesUI();
+        await refreshFoldersUI();
+        syncCurrentRecipeMetaUI();
       }catch(err){
         console.error("Delete recipe failed:", err);
         alert("No se pudo eliminar la receta. Intenta nuevamente.");
       }
     });
 
+    right.appendChild(favBtn);
     right.appendChild(delBtn);
+
     div.appendChild(left);
     div.appendChild(right);
 
@@ -395,6 +576,7 @@ function renderRecipeList(recipeNames){
       await switchRecipe(name, true);
       closeDrawer();
       await refreshRecipesUI();
+      syncCurrentRecipeMetaUI();
     });
 
     list.appendChild(div);
@@ -404,6 +586,7 @@ function renderRecipeList(recipeNames){
 async function refreshRecipesUI(){
   const merged = await listAllRecipeNames();
   renderRecipeList(merged);
+  refreshFolderFilterOptions(); // keep filter lists in sync
 }
 
 async function ensureRowsForRecipe(recipeName){
@@ -438,6 +621,14 @@ async function switchRecipe(recipeName, persist){
 
   rowsState = await ensureRowsForRecipe(recipeName);
   saveRowsForRecipe(recipeName, rowsState);
+
+  // Ensure meta entry exists for current recipe
+  try{
+    const meta = loadMeta();
+    ensureMetaForRecipe(meta, currentRecipe);
+    saveMeta(meta);
+  }catch{}
+
   setRecipeTitle();
   renderTable();
 }
@@ -461,6 +652,15 @@ async function createRecipeClean(name){
     try{ await dbDeleteRecipe(DB, name); }catch{}
   }
 
+  // Ensure meta exists (safe)
+  try{
+    const meta = loadMeta();
+    ensureMetaForRecipe(meta, name);
+    // Optional: if user is filtering by folder when creating, default assign to that folder
+    if (filterFolder) meta[name].folder = filterFolder;
+    saveMeta(meta);
+  }catch{}
+
   currentRecipe = name;
   setCurrentRecipe(name);
 
@@ -471,12 +671,154 @@ async function createRecipeClean(name){
   renderTable();
 
   await refreshRecipesUI();
+  await refreshFoldersUI();
+  syncCurrentRecipeMetaUI();
   closeDrawer();
 }
 
-// ---------------- Boot ----------------
+/* =========================
+   Folders UI
+   ========================= */
+function refreshFolderSelectOptions(){
+  const folders = loadFolders();
+
+  const currentSel = document.getElementById("currentFolderSelect");
+  if (currentSel){
+    const prev = currentSel.value || "";
+    currentSel.innerHTML = `<option value="">(Sin carpeta)</option>` + folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
+    // restore if exists
+    currentSel.value = folders.includes(prev) ? prev : "";
+  }
+}
+
+function refreshFolderFilterOptions(){
+  const folders = loadFolders();
+  const filterSel = document.getElementById("folderFilter");
+  if (!filterSel) return;
+
+  const prev = filterSel.value || "";
+  filterSel.innerHTML = `<option value="">Todas</option>` + folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
+  filterSel.value = folders.includes(prev) ? prev : (prev === "" ? "" : "");
+}
+
+function renderFoldersList(){
+  const wrap = document.getElementById("foldersList");
+  if (!wrap) return;
+
+  const folders = loadFolders();
+  wrap.innerHTML = "";
+
+  if (!folders.length){
+    const empty = document.createElement("div");
+    empty.className = "pill";
+    empty.style.padding = "10px";
+    empty.textContent = "Aún no tienes carpetas. Crea una arriba.";
+    wrap.appendChild(empty);
+    return;
+  }
+
+  for (const f of folders){
+    const row = document.createElement("div");
+    row.className = "folderItem";
+
+    const left = document.createElement("div");
+    left.className = "folderName";
+    left.textContent = f;
+
+    const right = document.createElement("div");
+    right.style.display = "flex";
+    right.style.gap = "8px";
+    right.style.alignItems = "center";
+
+    const applyBtn = document.createElement("button");
+    applyBtn.className = "iconBtn";
+    applyBtn.type = "button";
+    applyBtn.textContent = "Filtrar";
+    applyBtn.addEventListener("click", async () => {
+      filterFolder = f;
+      const sel = document.getElementById("folderFilter");
+      if (sel) sel.value = f;
+      await refreshRecipesUI();
+    });
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "iconBtn danger";
+    delBtn.type = "button";
+    delBtn.textContent = "Eliminar";
+    delBtn.addEventListener("click", async () => {
+      const ok = confirm(`¿Eliminar la carpeta "${f}"?\n\nEsto NO elimina recetas, solo las deja sin carpeta.`);
+      if (!ok) return;
+
+      // Remove folder
+      let folders2 = loadFolders().filter(x => x !== f);
+      folders2 = saveFolders(folders2);
+
+      // Unassign recipes from this folder (safe)
+      const meta = loadMeta();
+      for (const rn of Object.keys(meta)){
+        if (meta[rn] && meta[rn].folder === f){
+          meta[rn].folder = "";
+        }
+      }
+      saveMeta(meta);
+
+      // Reset filter if it was this folder
+      if (filterFolder === f) filterFolder = "";
+      const filterSel = document.getElementById("folderFilter");
+      if (filterSel) filterSel.value = filterFolder;
+
+      refreshFolderSelectOptions();
+      refreshFolderFilterOptions();
+      renderFoldersList();
+      syncCurrentRecipeMetaUI();
+      await refreshRecipesUI();
+    });
+
+    right.appendChild(applyBtn);
+    right.appendChild(delBtn);
+
+    row.appendChild(left);
+    row.appendChild(right);
+
+    wrap.appendChild(row);
+  }
+}
+
+async function refreshFoldersUI(){
+  refreshFolderSelectOptions();
+  refreshFolderFilterOptions();
+  renderFoldersList();
+}
+
+function syncCurrentRecipeMetaUI(){
+  // Favorite star + current folder select reflect currentRecipe meta
+  const meta = loadMeta();
+  ensureMetaForRecipe(meta, currentRecipe);
+  saveMeta(meta);
+
+  const m = meta[currentRecipe];
+
+  const favBtn = document.getElementById("toggleFavoriteBtn");
+  if (favBtn){
+    favBtn.textContent = m.favorite ? "★" : "☆";
+    favBtn.classList.toggle("favOn", !!m.favorite);
+    favBtn.title = m.favorite ? "Quitar de favoritas" : "Marcar como favorita";
+  }
+
+  const currentSel = document.getElementById("currentFolderSelect");
+  if (currentSel){
+    currentSel.value = (typeof m.folder === "string" ? m.folder : "") || "";
+  }
+}
+
+/* =========================
+   Boot
+   ========================= */
 document.addEventListener("DOMContentLoaded", async () => {
-  // 1) Drawer listeners FIRST (so menu opens even if later code fails)
+  // Safe migration (metadata only)
+  runSafeMigration();
+
+  // Drawer listeners FIRST
   const openBtn = document.getElementById("openDrawerBtn");
   const closeBtn = document.getElementById("closeDrawerBtn");
   const overlay = document.getElementById("drawerOverlay");
@@ -488,7 +830,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // One-time cleanup of old Flour/Sugar template for Default
   maybeCleanLegacyTemplate();
 
-  // 2) Margin init
+  // Margin init
   const marginEl = document.getElementById("marginPct");
   if (marginEl){
     marginEl.value = String(loadMarginPct());
@@ -498,7 +840,50 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // 3) Buttons
+  // Search + filters
+  const searchEl = document.getElementById("recipeSearch");
+  if (searchEl){
+    searchEl.addEventListener("input", async (e) => {
+      searchQuery = String(e.target.value || "");
+      await refreshRecipesUI();
+    });
+  }
+
+  const folderFilterEl = document.getElementById("folderFilter");
+  if (folderFilterEl){
+    folderFilterEl.addEventListener("change", async (e) => {
+      filterFolder = String(e.target.value || "");
+      await refreshRecipesUI();
+    });
+  }
+
+  const favOnlyEl = document.getElementById("favOnlyToggle");
+  if (favOnlyEl){
+    favOnlyEl.addEventListener("change", async (e) => {
+      favOnly = !!e.target.checked;
+      await refreshRecipesUI();
+    });
+  }
+
+  const resetFiltersBtn = document.getElementById("resetFiltersBtn");
+  if (resetFiltersBtn){
+    resetFiltersBtn.addEventListener("click", async () => {
+      searchQuery = "";
+      filterFolder = "";
+      favOnly = false;
+
+      const s = document.getElementById("recipeSearch");
+      const f = document.getElementById("folderFilter");
+      const c = document.getElementById("favOnlyToggle");
+      if (s) s.value = "";
+      if (f) f.value = "";
+      if (c) c.checked = false;
+
+      await refreshRecipesUI();
+    });
+  }
+
+  // Buttons
   const addRowBtn = document.getElementById("addRowBtn");
   if (addRowBtn) addRowBtn.addEventListener("click", () => {
     rowsState.push({ name:"", cost:0, amount:0, recipeAmount:0 });
@@ -532,7 +917,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (input) input.value = "";
   });
 
-const saveBtn = document.getElementById("saveRecipeBtn");
+  const saveBtn = document.getElementById("saveRecipeBtn");
   if (saveBtn) saveBtn.addEventListener("click", async () => {
     if (!DB) {
       alert("IndexedDB no disponible en este navegador.");
@@ -548,7 +933,68 @@ const saveBtn = document.getElementById("saveRecipeBtn");
     }
   });
 
-  // 4) Table events
+  // Favorite toggle (current recipe)
+  const toggleFavBtn = document.getElementById("toggleFavoriteBtn");
+  if (toggleFavBtn){
+    toggleFavBtn.addEventListener("click", async () => {
+      const meta = loadMeta();
+      ensureMetaForRecipe(meta, currentRecipe);
+      meta[currentRecipe].favorite = !meta[currentRecipe].favorite;
+      saveMeta(meta);
+      syncCurrentRecipeMetaUI();
+      await refreshRecipesUI();
+    });
+  }
+
+  // Folder assign (current recipe)
+  const currentFolderSelect = document.getElementById("currentFolderSelect");
+  if (currentFolderSelect){
+    currentFolderSelect.addEventListener("change", async (e) => {
+      const folder = String(e.target.value || "");
+      const meta = loadMeta();
+      ensureMetaForRecipe(meta, currentRecipe);
+      meta[currentRecipe].folder = folder;
+      saveMeta(meta);
+      syncCurrentRecipeMetaUI();
+      await refreshRecipesUI();
+    });
+  }
+
+  const clearFolderBtn = document.getElementById("clearFolderBtn");
+  if (clearFolderBtn){
+    clearFolderBtn.addEventListener("click", async () => {
+      const meta = loadMeta();
+      ensureMetaForRecipe(meta, currentRecipe);
+      meta[currentRecipe].folder = "";
+      saveMeta(meta);
+      syncCurrentRecipeMetaUI();
+      await refreshRecipesUI();
+    });
+  }
+
+  // Create folder
+  const createFolderBtn = document.getElementById("createFolderBtn");
+  if (createFolderBtn){
+    createFolderBtn.addEventListener("click", async () => {
+      const input = document.getElementById("newFolderName");
+      const name = String(input ? input.value : "").trim();
+      if (!name) return;
+
+      const folders = saveFolders([...loadFolders(), name]);
+      if (input) input.value = "";
+
+      refreshFolderSelectOptions();
+      refreshFolderFilterOptions();
+      renderFoldersList();
+
+      // Optional: if filter is empty, auto filter to newly created folder
+      // filterFolder = name; const ff = document.getElementById("folderFilter"); if (ff) ff.value = name;
+
+      await refreshRecipesUI();
+    });
+  }
+
+  // Table events
   const tbody = document.getElementById("tbody");
   if (tbody){
     tbody.addEventListener("input", (e) => {
@@ -601,7 +1047,7 @@ const saveBtn = document.getElementById("saveRecipeBtn");
     });
   }
 
-  // 5) Open DB (non-blocking behavior: even if this fails, menu still works)
+  // Open DB (non-blocking)
   try{
     DB = await openDB();
     // If Default rows were cleaned from localStorage, also clean its DB profile
@@ -616,14 +1062,23 @@ const saveBtn = document.getElementById("saveRecipeBtn");
     DB = null;
   }
 
-  // 6) Load initial recipe
+  // Load initial recipe
   currentRecipe = getCurrentRecipe();
   rowsState = await ensureRowsForRecipe(currentRecipe);
   saveRowsForRecipe(currentRecipe, rowsState);
 
+  // Ensure meta exists for current recipe
+  try{
+    const meta = loadMeta();
+    ensureMetaForRecipe(meta, currentRecipe);
+    saveMeta(meta);
+  }catch{}
+
   setRecipeTitle();
   renderTable();
+
+  // UI refresh
+  await refreshFoldersUI();
   await refreshRecipesUI();
+  syncCurrentRecipeMetaUI();
 });
-
-
