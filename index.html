@@ -6,9 +6,10 @@
   <title>Dessert Cost Calculator</title>
 
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#111827">
+  <meta name="theme-color" content="#f3dfe4">
 
-  <link rel="stylesheet" href="style.css" />
+  <!-- Cache-bust -->
+  <link rel="stylesheet" href="style.css?v=20260208" />
 </head>
 <body>
 
@@ -49,8 +50,8 @@
     </div>
   </div>
   <div class="actions">
-    <button id="addRowBtn" class="btn">+ Add</button>
-    <button id="resetBtn" class="btn btn-secondary">Reset</button>
+    <button id="addRowBtn" class="btn" type="button">+ Add</button>
+    <button id="resetBtn" class="btn btn-secondary" type="button">Reset</button>
   </div>
 </header>
 
@@ -59,8 +60,6 @@
 
     <div class="tableWrap">
       <table id="tbl">
-
-        <!-- 🔹 CONTROL DE ANCHO DE COLUMNAS -->
         <colgroup>
           <col class="c-name">
           <col class="c-num">
@@ -92,7 +91,6 @@
             <td></td>
           </tr>
         </tfoot>
-
       </table>
     </div>
 
@@ -121,11 +119,14 @@
   </section>
 </main>
 
-<script src="app.js"></script>
+<!-- Cache-bust -->
+<script src="app.js?v=20260208"></script>
 
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+  navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
+    .then(reg => { try { reg.update(); } catch(e) {} })
+    .catch(()=>{});
 }
 </script>
 
