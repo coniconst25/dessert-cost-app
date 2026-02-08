@@ -1,11 +1,11 @@
 :root{
-  --bg:#0b1220;
-  --card:#0f172a;
-  --muted:#9ca3af;
-  --text:#e5e7eb;
-  --line:#1f2937;
-  --accent:#22c55e;
-  --danger:#ef4444;
+  --bg:#f7e9ec;           /* fondo general rosa muy suave */
+  --card:#ffffff;         /* tarjetas blancas */
+  --muted:#b08993;        /* texto secundario */
+  --text:#4a2e35;         /* texto principal cacao oscuro */
+  --line:#ead3d8;         /* bordes suaves */
+  --accent:#d88c9a;       /* rosa palo principal */
+  --danger:#c94f5d;       /* rojo frambuesa */
 }
 
 *{ box-sizing:border-box; }
@@ -13,7 +13,7 @@
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: linear-gradient(180deg, #0b1220, #050814);
+  background: linear-gradient(180deg, #f9eef1, #f3dfe4);
   color:var(--text);
 }
 
@@ -333,3 +333,4 @@ body.drawer-open .drawer{
   font-size:12px;
   margin-top:8px;
 }
+
