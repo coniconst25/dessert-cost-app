@@ -1,11 +1,11 @@
 :root{
-  --bg:#f7e9ec;           /* fondo general rosa muy suave */
-  --card:#ffffff;         /* tarjetas blancas */
-  --muted:#b08993;        /* texto secundario */
-  --text:#4a2e35;         /* texto principal cacao oscuro */
-  --line:#ead3d8;         /* bordes suaves */
-  --accent:#d88c9a;       /* rosa palo principal */
-  --danger:#c94f5d;       /* rojo frambuesa */
+  --bg:#0b1220;
+  --card:#0f172a;
+  --muted:#9ca3af;
+  --text:#e5e7eb;
+  --line:#1f2937;
+  --accent:#22c55e;
+  --danger:#ef4444;
 }
 
 *{ box-sizing:border-box; }
@@ -13,7 +13,7 @@
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: linear-gradient(180deg, #f9eef1, #f3dfe4);
+  background: linear-gradient(180deg, #0b1220, #050814);
   color:var(--text);
 }
 
@@ -36,14 +36,15 @@ h1{ margin:0; font-size:18px; }
 .actions{ display:flex; gap:10px; }
 
 .btn{
-  background: var(--accent);
-  border: none;
-  color: white;
-  font-weight: 600;
+  border:1px solid var(--line);
+  background:#111827;
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:12px;
+  cursor:pointer;
+  font-weight:600;
 }
-.btn:hover{
-  filter: brightness(1.05);
-}
+.btn:hover{ border-color:#334155; }
 .btn-secondary{ opacity:0.9; }
 
 .btn-danger{
@@ -59,8 +60,7 @@ h1{ margin:0; font-size:18px; }
 }
 
 .card{
-  background: rgba(255,255,255,0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(15,23,42,0.7);
   border:1px solid var(--line);
   border-radius:18px;
   padding:12px;
@@ -333,4 +333,3 @@ body.drawer-open .drawer{
   font-size:12px;
   margin-top:8px;
 }
-
