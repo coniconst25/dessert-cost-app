@@ -52,6 +52,7 @@ function defaultRows(){
   ];
 }
 
+
 function getRowsKey(recipeName){ return ROWS_KEY_PREFIX + recipeName; }
 
 function getCurrentRecipe(){
@@ -564,4 +565,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderTable();
   await refreshRecipesUI();
 });
+
 
