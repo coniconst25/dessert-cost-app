@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dessert Cost Calculator</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#111827">
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Dessert Cost Calculator</h1>
+      <p class="sub">Ingredient → unit cost → recipe cost</p>
+    </div>
+    <div class="actions">
+      <button id="addRowBtn" class="btn">+ Add</button>
+      <button id="resetBtn" class="btn btn-secondary">Reset</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="tableWrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Ingredient</th>
+              <th class="num">Cost</th>
+              <th class="num">Amount</th>
+              <th class="num">Unit Cost</th>
+              <th class="num">Recipe Amount</th>
+              <th class="num">Recipe Cost</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5" class="totalLabel">Total</td>
+              <td class="num totalValue" id="totalCell">$0</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="hint">
+        Tip: On iPhone, open this page in Safari → Share → <b>Add to Home Screen</b>.
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    // Optional offline support
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+    }
+  </script>
+</body>
+</html>

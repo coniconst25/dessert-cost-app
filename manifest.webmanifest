@@ -1,0 +1,10 @@
+{
+  "name": "Dessert Cost Calculator",
+  "short_name": "DessertCost",
+  "start_url": "/dessert-cost-app/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#111827",
+  "scope": "/dessert-cost-app/",
+  "icons": []
+}

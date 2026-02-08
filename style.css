@@ -1,0 +1,125 @@
+:root{
+  --bg:#0b1220;
+  --card:#0f172a;
+  --muted:#9ca3af;
+  --text:#e5e7eb;
+  --line:#1f2937;
+  --accent:#22c55e;
+  --danger:#ef4444;
+}
+
+*{ box-sizing:border-box; }
+body{
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: linear-gradient(180deg, #0b1220, #050814);
+  color:var(--text);
+}
+
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  padding:18px 16px;
+  border-bottom:1px solid var(--line);
+  position:sticky;
+  top:0;
+  backdrop-filter: blur(10px);
+  background: rgba(11,18,32,0.85);
+}
+
+h1{ margin:0; font-size:18px; }
+.sub{ margin:4px 0 0; color:var(--muted); font-size:13px; }
+
+.actions{ display:flex; gap:10px; }
+
+.btn{
+  border:1px solid var(--line);
+  background:#111827;
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:12px;
+  cursor:pointer;
+  font-weight:600;
+}
+.btn:hover{ border-color:#334155; }
+.btn-secondary{ opacity:0.9; }
+.btn-danger{
+  background: rgba(239,68,68,0.12);
+  border-color: rgba(239,68,68,0.35);
+  color: #fecaca;
+}
+
+.container{ padding:14px; max-width:1050px; margin:0 auto; }
+
+.card{
+  background: rgba(15,23,42,0.7);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+}
+
+.tableWrap{
+  overflow:auto;
+  border-radius:14px;
+  border:1px solid var(--line);
+}
+
+table{
+  width:100%;
+  border-collapse: collapse;
+  min-width: 820px; /* allows horizontal scroll on phones */
+  background: rgba(17,24,39,0.6);
+}
+
+th, td{
+  padding:10px 10px;
+  border-bottom:1px solid var(--line);
+  vertical-align:middle;
+}
+
+th{
+  text-align:left;
+  font-size:12px;
+  color:var(--muted);
+  position:sticky;
+  top:0;
+  background: rgba(17,24,39,0.95);
+}
+
+td.num, th.num{ text-align:right; }
+
+input{
+  width:100%;
+  padding:9px 10px;
+  border-radius:12px;
+  border:1px solid #2b3446;
+  background:#0b1220;
+  color:var(--text);
+  outline:none;
+}
+input:focus{ border-color:#475569; }
+
+.readonly{
+  color:#d1d5db;
+  font-variant-numeric: tabular-nums;
+}
+
+.totalLabel{
+  text-align:right;
+  color:var(--muted);
+  font-weight:700;
+}
+.totalValue{
+  font-weight:800;
+  font-size:16px;
+  color: var(--accent);
+}
+
+.hint{
+  margin-top:10px;
+  color:var(--muted);
+  font-size:12px;
+}
