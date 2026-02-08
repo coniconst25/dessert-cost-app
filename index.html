@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dessert Cost Calculator</title>
+  <title>Calculadora de Costos</title>
 
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#f3dfe4">
@@ -18,23 +18,23 @@
 
 <aside id="drawer" class="drawer" aria-label="Recipes">
   <div class="drawerHeader">
-    <p class="drawerTitle">Recipes</p>
+    <p class="drawerTitle">Recetas</p>
     <button id="closeDrawerBtn" class="iconBtn" type="button" aria-label="Close">✕</button>
   </div>
 
   <div class="drawerBody">
     <div class="drawerCard">
       <div class="drawerRow">
-        <input id="newRecipeName" placeholder="New recipe name (e.g., Kuchen)" />
-        <button id="createRecipeBtn" class="btn" type="button">Create</button>
+        <input id="newRecipeName" placeholder="Nueva Receta (ej. Kuchen)" />
+        <button id="createRecipeBtn" class="btn" type="button">Crear</button>
       </div>
-      <div class="smallNote">Tip: Open a recipe, then press <b>Save</b> to store its ingredients.</div>
+      <div class="smallNote">Tip: Abre una receta, luego presiona <b>Guardar</b> para almacenar ingredientes.</div>
     </div>
 
     <div class="drawerCard">
       <div class="drawerRow" style="justify-content:space-between; gap:10px;">
-        <div class="pill">Current recipe</div>
-        <button id="saveRecipeBtn" class="btn" type="button">Save</button>
+        <div class="pill">Receta actual</div>
+        <button id="saveRecipeBtn" class="btn" type="button">Guardar</button>
       </div>
       <div id="recipeList" class="recipeList" role="list"></div>
     </div>
@@ -45,13 +45,13 @@
   <div class="brand">
     <button id="openDrawerBtn" class="hamburger" type="button" aria-label="Open menu">☰</button>
     <div>
-      <h1 id="recipeTitle">Dessert Cost Calculator</h1>
-      <p class="sub">Ingredient → unit cost → recipe cost</p>
+      <h1 id="recipeTitle">Calculadora de Costos</h1>
+      <p class="sub">Ingrediente → Costo Unitario → Costo Receta</p>
     </div>
   </div>
   <div class="actions">
-    <button id="addRowBtn" class="btn" type="button">+ Add</button>
-    <button id="resetBtn" class="btn btn-secondary" type="button">Reset</button>
+    <button id="addRowBtn" class="btn" type="button">+ Añadir</button>
+    <button id="resetBtn" class="btn btn-secondary" type="button">Reiniciar</button>
   </div>
 </header>
 
@@ -72,12 +72,12 @@
 
         <thead>
           <tr>
-            <th>Ingredient</th>
-            <th>Cost</th>
-            <th>Amount</th>
-            <th>Unit Cost</th>
-            <th>Recipe Amount</th>
-            <th>Recipe Cost</th>
+            <th>Ingrediente</th>
+            <th>Costo</th>
+            <th>Cantidad</th>
+            <th>Costo Unitario</th>
+            <th>Receta</th>
+            <th>Costo Receta</th>
             <th></th>
           </tr>
         </thead>
@@ -98,15 +98,15 @@
     <div class="pricing">
       <div class="drawerCard">
         <div class="kv">
-          <div class="k">Profit margin (%)</div>
+          <div class="k">Margen Ganancia (%)</div>
           <input id="marginPct" inputmode="decimal" value="30" style="max-width:120px;" />
         </div>
-        <div class="smallNote">Final price is rounded to an integer.</div>
+        <div class="smallNote">Precio final redondeado a intero.</div>
       </div>
 
       <div class="drawerCard">
         <div class="kv">
-          <div class="k">Final sale price</div>
+          <div class="k">Precio Final</div>
           <div class="v" id="finalPriceCell">$0</div>
         </div>
       </div>
@@ -132,3 +132,4 @@ if ('serviceWorker' in navigator) {
 
 </body>
 </html>
+
