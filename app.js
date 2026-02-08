@@ -49,7 +49,10 @@ function escapeHtml(s){
 
 function defaultRows(){
   return [
-    { name:"", cost:0, amount:0, recipeAmount:0 }
+    { name:"", cost:0, amount:0, recipeAmount:0 },
+  ];
+}
+
 function isLegacyTemplate(rows){
   // Detect the old hardcoded template: Flour + Sugar (case-insensitive)
   if (!Array.isArray(rows) || rows.length !== 2) return false;
@@ -73,9 +76,6 @@ function maybeCleanLegacyTemplate(){
   }catch{
     // ignore
   }
-}
-,
-  ];
 }
 
 
