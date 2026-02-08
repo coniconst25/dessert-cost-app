@@ -109,7 +109,7 @@ input:focus{ border-color:#475569; }
 }
 
 .totalLabel{
-  text-align:right;
+  text-align:left;
   color:var(--muted);
   font-weight:700;
 }
@@ -124,4 +124,10 @@ input:focus{ border-color:#475569; }
   color:var(--muted);
   font-size:12px;
 }
+table th,
+table td {
+  text-align: left !important;
+}
+
+
 
