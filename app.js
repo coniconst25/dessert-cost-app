@@ -48,8 +48,7 @@ function escapeHtml(s){
 
 function defaultRows(){
   return [
-    { name:"Flour", cost:1290, amount:1000, recipeAmount:300 },
-    { name:"Sugar", cost:0, amount:0, recipeAmount:0 },
+    { name:"", cost:0, amount:0, recipeAmount:0 },
   ];
 }
 
@@ -565,3 +564,4 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderTable();
   await refreshRecipesUI();
 });
+
