@@ -1,11 +1,16 @@
 :root{
+  /* Pastelería rosa palo */
   --bg:#f7e9ec;           /* fondo general rosa muy suave */
   --card:#ffffff;         /* tarjetas blancas */
   --muted:#b08993;        /* texto secundario */
-  --text:#4a2e35;         /* texto principal cacao oscuro */
+  --text:#4a2e35;         /* texto principal cacao */
   --line:#ead3d8;         /* bordes suaves */
   --accent:#d88c9a;       /* rosa palo principal */
   --danger:#c94f5d;       /* rojo frambuesa */
+
+  /* extras suaves */
+  --soft:#fff6f8;         /* fondo alternativo */
+  --shadow: rgba(122,44,54,0.12);
 }
 
 *{ box-sizing:border-box; }
@@ -27,7 +32,7 @@ body{
   position:sticky;
   top:0;
   backdrop-filter: blur(10px);
-  background: rgba(11,18,32,0.85);
+  background: rgba(255,255,255,0.75);
 }
 
 h1{ margin:0; font-size:18px; }
@@ -36,22 +41,29 @@ h1{ margin:0; font-size:18px; }
 .actions{ display:flex; gap:10px; }
 
 .btn{
-  border:1px solid var(--line);
-  background:#111827;
-  color:var(--text);
+  border:1px solid rgba(0,0,0,0.04);
+  background: var(--accent);
+  color:#ffffff;
   padding:10px 12px;
   border-radius:12px;
   cursor:pointer;
-  font-weight:600;
+  font-weight:700;
 }
-.btn:hover{ border-color:#334155; }
-.btn-secondary{ opacity:0.9; }
+.btn:hover{ filter: brightness(1.05); }
+
+.btn-secondary{
+  background: rgba(255,255,255,0.85);
+  color: var(--text);
+  border:1px solid var(--line);
+}
+.btn-secondary:hover{ filter:none; border-color: rgba(216,140,154,0.55); }
 
 .btn-danger{
-  background: rgba(239,68,68,0.12);
-  border-color: rgba(239,68,68,0.35);
-  color: #fecaca;
+  background: rgba(201,79,93,0.12);
+  border-color: rgba(201,79,93,0.35);
+  color: #7a2c36;
 }
+.btn-danger:hover{ border-color: rgba(201,79,93,0.55); }
 
 .container{
   padding:14px;
@@ -60,17 +72,18 @@ h1{ margin:0; font-size:18px; }
 }
 
 .card{
-  background: rgba(15,23,42,0.7);
+  background: rgba(255,255,255,0.82);
   border:1px solid var(--line);
   border-radius:18px;
   padding:12px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  box-shadow: 0 10px 28px var(--shadow);
 }
 
 .tableWrap{
   overflow-x:auto;
   border-radius:14px;
   border:1px solid var(--line);
+  background: rgba(255,255,255,0.55);
 }
 
 /* 🔹 TABLA CONTROLADA */
@@ -78,7 +91,7 @@ table{
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  background: rgba(17,24,39,0.6);
+  background: rgba(255,255,255,0.65);
 }
 
 /* 🔹 CONTROL DE ANCHOS */
@@ -106,7 +119,7 @@ th{
   color:var(--muted);
   position:sticky;
   top:0;
-  background: rgba(17,24,39,0.95);
+  background: rgba(255,255,255,0.92);
 }
 
 td input{
@@ -115,29 +128,30 @@ td input{
   max-width:none;
   padding:9px 10px;
   border-radius:12px;
-  border:1px solid #2b3446;
-  background:#0b1220;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,0.92);
   color:var(--text);
   outline:none;
 }
 
 input:focus{
-  border-color:#475569;
+  border-color: rgba(216,140,154,0.65);
+  box-shadow: 0 0 0 3px rgba(216,140,154,0.18);
 }
 
 .readonly{
-  color:#d1d5db;
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
 .totalLabel{
   text-align:left;
   color:var(--muted);
-  font-weight:700;
+  font-weight:800;
 }
 
 .totalValue{
-  font-weight:800;
+  font-weight:900;
   font-size:16px;
   color: var(--accent);
 }
@@ -159,11 +173,13 @@ input:focus{
   height:42px;
   border-radius:12px;
   border:1px solid var(--line);
-  background: rgba(17,24,39,0.65);
+  background: rgba(255,255,255,0.85);
   color: var(--text);
   cursor:pointer;
 }
-.hamburger:hover{ border-color:#334155; }
+.hamburger:hover{
+  border-color: rgba(216,140,154,0.65);
+}
 
 .brand{
   display:flex;
@@ -174,7 +190,7 @@ input:focus{
 .drawerOverlay{
   position:fixed;
   inset:0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(74,46,53,0.25);
   opacity:0;
   pointer-events:none;
   transition: opacity 180ms ease;
@@ -188,7 +204,7 @@ input:focus{
   height:100dvh;
   width:320px;
   max-width:86vw;
-  background: rgba(15,23,42,0.98);
+  background: rgba(255,255,255,0.94);
   border-right:1px solid var(--line);
   transform: translateX(-105%);
   transition: transform 220ms ease;
@@ -205,6 +221,7 @@ input:focus{
   justify-content:space-between;
   gap:12px;
 }
+
 .drawerTitle{
   font-size:13px;
   color:var(--muted);
@@ -224,7 +241,7 @@ input:focus{
 .drawerCard{
   border:1px solid var(--line);
   border-radius:16px;
-  background: rgba(17,24,39,0.55);
+  background: rgba(255,255,255,0.78);
   padding:12px;
 }
 
@@ -233,12 +250,13 @@ input:focus{
   gap:10px;
   align-items:center;
 }
+
 .drawerRow input{
   width:100%;
   padding:10px 10px;
   border-radius:12px;
-  border:1px solid #2b3446;
-  background:#0b1220;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,0.92);
   color:var(--text);
   outline:none;
 }
@@ -249,6 +267,7 @@ input:focus{
   gap:8px;
   margin-top:10px;
 }
+
 .recipeItem{
   display:flex;
   align-items:center;
@@ -257,20 +276,26 @@ input:focus{
   padding:10px 10px;
   border:1px solid var(--line);
   border-radius:14px;
-  background: rgba(11,18,32,0.65);
+  background: rgba(255,255,255,0.78);
   cursor:pointer;
 }
-.recipeItem:hover{ border-color:#334155; }
-.recipeItem.active{
-  border-color: rgba(34,197,94,0.55);
-  box-shadow: 0 0 0 3px rgba(34,197,94,0.12);
+
+.recipeItem:hover{
+  border-color: rgba(216,140,154,0.65);
 }
+
+.recipeItem.active{
+  border-color: rgba(216,140,154,0.85);
+  box-shadow: 0 0 0 3px rgba(216,140,154,0.18);
+}
+
 .recipeName{
-  font-weight:700;
+  font-weight:800;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+
 .pill{
   font-size:12px;
   color:var(--muted);
@@ -278,23 +303,27 @@ input:focus{
 
 .iconBtn{
   border:1px solid var(--line);
-  background: rgba(17,24,39,0.55);
+  background: rgba(255,255,255,0.85);
   color: var(--text);
   padding:8px 10px;
   border-radius:12px;
   cursor:pointer;
 }
-.iconBtn:hover{ border-color:#334155; }
+.iconBtn:hover{
+  border-color: rgba(216,140,154,0.65);
+}
+
 .iconBtn.danger{
-  border-color: rgba(239,68,68,0.35);
-  background: rgba(239,68,68,0.12);
-  color: #fecaca;
+  border-color: rgba(201,79,93,0.35);
+  background: rgba(201,79,93,0.10);
+  color: #7a2c36;
 }
 
 body.drawer-open .drawerOverlay{
   opacity:1;
   pointer-events:auto;
 }
+
 body.drawer-open .drawer{
   transform: translateX(0%);
 }
@@ -320,12 +349,13 @@ body.drawer-open .drawer{
 }
 .k{
   color:var(--muted);
-  font-weight:700;
+  font-weight:800;
 }
 .v{
   font-weight:900;
   font-size:16px;
   font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 .smallNote{
@@ -333,4 +363,3 @@ body.drawer-open .drawer{
   font-size:12px;
   margin-top:8px;
 }
-
