@@ -792,12 +792,13 @@ body.drawer-open .drawer{
   align-items: center;
 }
 
+
 .settings .menu{
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   min-width: 240px;
-  background: rgba(15,23,42,0.98);
+  background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 8px;
@@ -833,4 +834,22 @@ body.drawer-open .drawer{
     right: 0;
     min-width: auto;
   }
+}
+
+/* Settings dropdown readability */
+.settings .menuItem:focus{
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+
+
+/* Gear button should look consistent */
+#settingsBtn{
+  background: rgba(255,255,255,0.02);
+  color: var(--text);
+}
+#settingsBtn:hover{
+  background: rgba(255,255,255,0.05);
 }
