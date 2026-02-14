@@ -182,15 +182,22 @@
 </main>
 
 <!-- Cache-bust -->
-<script src="app.js?v=20260214a"></script>
+<script src="app.js?v=20260214a" defer></script>
 
 <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
-    .then(reg => { try { reg.update(); } catch(e) {} })
-    .catch(()=>{});
-}
+/* Force-refresh: disable old Service Workers + clear caches (safe for GitHub Pages) */
+(async () => {
+  try{
+    if ('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) { try{ await r.unregister(); }catch(e){} }
+    }
+    if (window.caches){
+      const keys = await caches.keys();
+      for (const k of keys) { try{ await caches.delete(k); }catch(e){} }
+    }
+  }catch(e){}
+})();
 </script>
-
 </body>
 </html>
