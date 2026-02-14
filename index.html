@@ -86,6 +86,15 @@
   <div class="actions">
     <button id="addRowBtn" class="btn" type="button">+ Añadir</button>
     <button id="resetBtn" class="btn btn-secondary" type="button">Reiniciar</button>
+
+<div class="settings">
+  <button id="settingsBtn" class="iconBtn" type="button" aria-label="Configuración" title="Configuración">⚙️</button>
+  <div id="settingsMenu" class="menu" aria-hidden="true">
+    <button id="exportDbBtn" class="menuItem" type="button">Exportar base de datos (JSON)</button>
+    <button id="importDbBtn" class="menuItem" type="button">Importar base de datos (JSON)</button>
+  </div>
+  <input id="importFileInput" type="file" accept="application/json" style="display:none" />
+</div>
   </div>
 </header>
 
