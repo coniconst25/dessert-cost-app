@@ -530,6 +530,9 @@ async function ensureRowsForRecipe(recipeName){
 }
 
 async function switchRecipe(recipeName, persist){
+  // Save current recipe settings before switching
+  persistCurrentRecipeSettingsFromUI();
+
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
   currentRecipe = recipeName;
@@ -557,6 +560,9 @@ function scheduleSave(){
 }
 
 async function createRecipeClean(name){
+  // Save current recipe settings before creating a new one
+  persistCurrentRecipeSettingsFromUI();
+
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
   try{ localStorage.removeItem(getRowsKey(name)); }catch{}
@@ -594,6 +600,18 @@ function applyRecipeSettingsToUI(){
     if (marginEl) marginEl.value = String(n(s.marginPct));
     if (yieldEl) yieldEl.value = String(Math.max(1, n(s.yieldQty)));
   }catch(e){}
+
+
+function persistCurrentRecipeSettingsFromUI(){
+  try{
+    const marginEl = document.getElementById("marginPct");
+    const yieldEl = document.getElementById("yieldQty");
+    const mp = marginEl ? n(marginEl.value) : 0;
+    const yq = yieldEl ? Math.max(1, n(yieldEl.value)) : 1;
+    setRecipeSettings(currentRecipe, { marginPct: mp, yieldQty: yq });
+  }catch(e){}
+}
+
 }
 
 function syncCurrentRecipeMetaUI(){
