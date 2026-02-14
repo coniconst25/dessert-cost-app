@@ -853,3 +853,26 @@ body.drawer-open .drawer{
 #settingsBtn:hover{
   background: rgba(255,255,255,0.05);
 }
+
+
+
+
+/* ===== HARD OVERRIDE: Settings menu visual fix ===== */
+header .settings .menu{
+  background: var(--card) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line) !important;
+}
+
+header .settings .menu .menuItem{
+  color: var(--text) !important;
+  background: transparent !important;
+}
+
+header .settings .menu .menuItem:hover{
+  background: rgba(255,255,255,0.06) !important;
+}
+
+header .settings .menu .menuItem:active{
+  background: rgba(255,255,255,0.08) !important;
+}
