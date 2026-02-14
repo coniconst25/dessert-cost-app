@@ -677,6 +677,115 @@ async function renderSummaryTable(){
   }
 }
 
+
+/* =========================
+   Export / Import DB (ingredients per recipe)
+   ========================= */
+function downloadJson(filename, obj){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function exportIngredientsDB(){
+  const names = await listAllRecipeNames();
+  const meta = loadMeta();
+  for (const rn of names) ensureMetaForRecipe(meta, rn);
+  saveMeta(meta);
+
+  const itemsOut = [];
+  const seen = new Set();
+
+  // Prefer IndexedDB if available
+  if (DB){
+    const all = await dbGetAll(DB);
+    for (const it of all){
+      if (!it || !it.recipeName || !it.Ingredient) continue;
+      const key = it.recipeName + "::" + it.Ingredient;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      itemsOut.push({ recipe: it.recipeName, ingredient: it.Ingredient });
+    }
+  }
+
+  // Also include LocalStorage rows (in case user never pressed Guardar)
+  for (const rn of names){
+    const rows = loadRowsForRecipe(rn);
+    if (!rows) continue;
+    for (const r of rows){
+      const ing = String(r.name || "").trim();
+      if (!ing) continue;
+      const key = rn + "::" + ing;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      itemsOut.push({ recipe: rn, ingredient: ing });
+    }
+  }
+
+  itemsOut.sort((a,b) => (a.recipe.localeCompare(b.recipe) || a.ingredient.localeCompare(b.ingredient)));
+
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    items: itemsOut
+  };
+
+  downloadJson("dessert_ingredients_db.json", payload);
+}
+
+async function importIngredientsDBFromObject(obj){
+  if (!obj || typeof obj !== "object") throw new Error("JSON inválido.");
+  const items = Array.isArray(obj.items) ? obj.items : null;
+  if (!items) throw new Error("JSON inválido: falta 'items'.");
+
+  // Build map recipe -> set(ingredient)
+  const map = new Map();
+  for (const it of items){
+    if (!it) continue;
+    const recipe = String(it.recipe || "").trim();
+    const ingredient = String(it.ingredient || "").trim();
+    if (!recipe || !ingredient) continue;
+    if (!map.has(recipe)) map.set(recipe, new Set());
+    map.get(recipe).add(ingredient);
+  }
+
+  if (!map.size) throw new Error("No hay items válidos para importar.");
+
+  // Update meta
+  const meta = loadMeta();
+  for (const recipe of map.keys()) ensureMetaForRecipe(meta, recipe);
+  saveMeta(meta);
+
+  // Write LocalStorage rows for each recipe (cost/amount unknown -> 0)
+  for (const [recipe, setIngs] of map.entries()){
+    const rows = Array.from(setIngs).sort((a,b)=>a.localeCompare(b)).map(ing => ({
+      name: ing,
+      cost: 0,
+      amount: 0,
+      recipeAmount: 0
+    }));
+    saveRowsForRecipe(recipe, rows.length ? rows : defaultRows());
+  }
+
+  // If IndexedDB available, store items with RecipeAmmount=0
+  if (DB){
+    for (const [recipe, setIngs] of map.entries()){
+      const rows = Array.from(setIngs).map(ing => ({ name: ing, recipeAmount: 0 }));
+      await dbPutItems(DB, recipe, rows);
+    }
+  }
+
+  // Refresh UI
+  await refreshRecipesUI();
+  if (currentView === "summary") await renderSummaryTable();
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   // Drawer listeners FIRST
   const openBtn = document.getElementById("openDrawerBtn");
@@ -686,6 +795,65 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (openBtn) openBtn.addEventListener("click", openDrawer);
   if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
   if (overlay) overlay.addEventListener("click", closeDrawer);
+
+
+// Settings dropdown (Export/Import)
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsMenu = document.getElementById("settingsMenu");
+const exportDbBtn = document.getElementById("exportDbBtn");
+const importDbBtn = document.getElementById("importDbBtn");
+const importFileInput = document.getElementById("importFileInput");
+
+function closeSettings(){
+  if (settingsMenu) settingsMenu.classList.remove("open");
+  if (settingsMenu) settingsMenu.setAttribute("aria-hidden", "true");
+}
+
+if (settingsBtn){
+  settingsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!settingsMenu) return;
+    const open = settingsMenu.classList.toggle("open");
+    settingsMenu.setAttribute("aria-hidden", open ? "false" : "true");
+  });
+}
+
+document.addEventListener("click", () => closeSettings());
+
+if (exportDbBtn){
+  exportDbBtn.addEventListener("click", async () => {
+    closeSettings();
+    try{
+      await exportIngredientsDB();
+    }catch(err){
+      console.error(err);
+      alert("No se pudo exportar. Intenta nuevamente.");
+    }
+  });
+}
+
+if (importDbBtn && importFileInput){
+  importDbBtn.addEventListener("click", () => {
+    closeSettings();
+    importFileInput.value = "";
+    importFileInput.click(); // works on mobile + desktop
+  });
+
+  importFileInput.addEventListener("change", async () => {
+    const file = importFileInput.files && importFileInput.files[0];
+    if (!file) return;
+    try{
+      const text = await file.text();
+      const obj = JSON.parse(text);
+      await importIngredientsDBFromObject(obj);
+      alert("Importación completada.");
+    }catch(err){
+      console.error(err);
+      alert("No se pudo importar: JSON inválido o incompatible.");
+    }
+  });
+}
+
 
 
 // View buttons (Resumen / Editor)
