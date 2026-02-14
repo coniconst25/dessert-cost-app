@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#f3dfe4">
 
   <!-- Cache-bust -->
-  <link rel="stylesheet" href="style.css?v=20260208e" />
+  <link rel="stylesheet" href="style.dashboard.css?v=20260214a" />
 </head>
 <body>
 
@@ -72,6 +72,8 @@
 <header class="topbar">
   <div class="brand">
     <button id="openDrawerBtn" class="hamburger" type="button" aria-label="Open menu">☰</button>
+      <button id="viewSummaryBtn" class="tabBtn" type="button" aria-label="Resumen">Resumen</button>
+<button id="viewEditorBtn" class="tabBtn" type="button" aria-label="Editor">Editor</button>
     <div>
       <h1 id="recipeTitle">Calculadora de Costos</h1>
       <p class="sub">Ingrediente → Costo Unitario → Costo Receta</p>
@@ -84,7 +86,39 @@
 </header>
 
 <main class="container">
-  <section class="card">
+  
+<!-- Summary View -->
+<section id="summaryView" class="card" style="display:none;">
+  <div class="cardHeader">
+    <div>
+      <h2 style="margin:0;">Resumen de recetas</h2>
+      <p class="muted" style="margin:6px 0 0 0;">Busca, filtra por favoritas y revisa costos rápidamente.</p>
+    </div>
+    <div class="summaryControls">
+      <input id="summarySearch" placeholder="Buscar receta…" />
+      <label class="check summaryFav">
+        <input id="summaryFavOnly" type="checkbox" />
+        <span>Solo favoritas</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="tableWrap">
+    <table class="summaryTable">
+      <thead>
+        <tr>
+          <th>Nombre receta</th>
+          <th>Costo receta</th>
+          <th>Precio final</th>
+        </tr>
+      </thead>
+      <tbody id="summaryTbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Editor View (existing UI) -->
+<section id="editorView" class="card">
 
     <div class="tableWrap">
       <table id="tbl">
@@ -148,7 +182,7 @@
 </main>
 
 <!-- Cache-bust -->
-<script src="app.js?v=20260208e"></script>
+<script src="app.dashboard.js?v=20260214a"></script>
 
 <script>
 if ('serviceWorker' in navigator) {
