@@ -391,8 +391,9 @@ input:focus, select:focus{
 }
 
 .favOn{
-  border-color: rgba(216,140,154,0.75);
-  background: rgba(216,140,154,0.16);
+  border-color: var(--line);
+  background: transparent;
+  color: var(--text);
 }
 
 body.drawer-open .drawerOverlay{
