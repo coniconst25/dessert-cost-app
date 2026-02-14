@@ -648,3 +648,100 @@ body.drawer-open .drawer{
 /* Favorite badge neutralization (remove colored background/border) */
 .summaryName .star{ background: transparent; border: none; padding: 0; }
 .recipeItem .pill{ background: transparent; border: none; padding: 0; }
+
+
+
+/* ===============================
+   Mobile responsiveness
+   =============================== */
+
+.topbar{
+  gap: 12px;
+}
+
+.brand{
+  display:flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tabsRow{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.titleBlock{
+  min-width: 0;
+}
+
+.titleBlock #recipeTitle{
+  font-size: 16px;
+  line-height: 1.2;
+  margin: 0;
+  word-break: break-word;
+}
+
+.titleBlock .sub{
+  margin: 6px 0 0 0;
+}
+
+@media (max-width: 520px){
+  .topbar{
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 12px;
+  }
+
+  .actions{
+    width: 100%;
+    display:flex;
+    gap: 10px;
+    justify-content: space-between;
+  }
+
+  .actions .btn{
+    flex: 1 1 auto;
+    padding: 10px 10px;
+    font-size: 13px;
+  }
+
+  .tabsRow{
+    width: 100%;
+    gap: 8px;
+  }
+
+  .hamburger{
+    padding: 10px 12px;
+  }
+
+  .tabBtn{
+    flex: 1 1 0;
+    text-align: center;
+    padding: 10px 10px;
+    font-size: 13px;
+  }
+
+  /* Summary controls stack nicely */
+  .summaryControls{
+    width: 100%;
+    gap: 10px;
+  }
+
+  #summarySearch{
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Summary table: reduce min width and allow horizontal scroll */
+  .summaryTable{
+    min-width: 440px;
+  }
+
+  /* Drawer width for mobile */
+  .drawer{
+    width: min(92vw, 360px);
+  }
+}
