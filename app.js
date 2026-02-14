@@ -573,6 +573,113 @@ function syncCurrentRecipeMetaUI(){
 /* =========================
    Boot
    ========================= */
+
+/* =========================
+   Summary View (all recipes)
+   ========================= */
+let summarySearchQuery = "";
+let summaryFavOnly = false;
+let currentView = "editor"; // 'summary' | 'editor'
+
+function setView(view){
+  currentView = view;
+  const s = document.getElementById("summaryView");
+  const e = document.getElementById("editorView");
+  const bSum = document.getElementById("viewSummaryBtn");
+  const bEd  = document.getElementById("viewEditorBtn");
+
+  if (s) s.style.display = (view === "summary") ? "" : "none";
+  if (e) e.style.display = (view === "editor") ? "" : "none";
+
+  if (bSum) bSum.classList.toggle("active", view === "summary");
+  if (bEd)  bEd.classList.toggle("active", view === "editor");
+}
+
+function recipeIsFavorite(recipeName){
+  const meta = loadMeta();
+  ensureMetaForRecipe(meta, recipeName);
+  saveMeta(meta);
+  return !!meta[recipeName].favorite;
+}
+
+function getMarginPctFromUI(){
+  const marginEl = document.getElementById("marginPct");
+  return marginEl ? n(marginEl.value) : loadMarginPct();
+}
+
+async function getRowsForSummary(recipeName){
+  const fromLS = loadRowsForRecipe(recipeName);
+  if (fromLS) return fromLS;
+
+  if (DB){
+    const items = await dbGetItems(DB, recipeName);
+    if (items.length){
+      const cache = loadIngredientCache();
+      return items.map(it => {
+        const c = cache[it.Ingredient] || { cost: 0, amount: 0 };
+        return {
+          name: it.Ingredient,
+          cost: n(c.cost),
+          amount: n(c.amount),
+          recipeAmount: n(it.RecipeAmmount),
+        };
+      });
+    }
+  }
+  return defaultRows();
+}
+
+function matchesSummaryFilters(recipeName){
+  const q = String(summarySearchQuery || "").trim().toLowerCase();
+  if (q && !recipeName.toLowerCase().includes(q)) return false;
+  if (summaryFavOnly && !recipeIsFavorite(recipeName)) return false;
+  return true;
+}
+
+async function renderSummaryTable(){
+  const tbody = document.getElementById("summaryTbody");
+  if (!tbody) return;
+
+  const marginPct = getMarginPctFromUI();
+  const names = await listAllRecipeNames();
+  const filtered = names.filter(matchesSummaryFilters);
+
+  tbody.innerHTML = "";
+
+  if (!filtered.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="3" class="muted" style="padding:12px;">No hay recetas con esos filtros.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  for (const name of filtered){
+    const rows = await getRowsForSummary(name);
+    const total = computeTotal(rows);
+    const finalPrice = Math.round(total * (1 + marginPct / 100));
+
+    const tr = document.createElement("tr");
+    tr.className = "summaryRow";
+    tr.innerHTML = `
+      <td class="summaryName">
+        <span class="name">${escapeHtml(name)}</span>
+        ${recipeIsFavorite(name) ? '<span class="star">★</span>' : ''}
+      </td>
+      <td>${money(total)}</td>
+      <td>${moneyInt(finalPrice)}</td>
+    `;
+
+    tr.addEventListener("click", async () => {
+      await switchRecipe(name, true);
+      setView("editor");
+      syncCurrentRecipeMetaUI();
+      await refreshRecipesUI();
+    });
+
+    tbody.appendChild(tr);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   // Drawer listeners FIRST
   const openBtn = document.getElementById("openDrawerBtn");
@@ -582,6 +689,38 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (openBtn) openBtn.addEventListener("click", openDrawer);
   if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
   if (overlay) overlay.addEventListener("click", closeDrawer);
+
+
+// View buttons (Resumen / Editor)
+const viewSummaryBtn = document.getElementById("viewSummaryBtn");
+const viewEditorBtn  = document.getElementById("viewEditorBtn");
+
+if (viewSummaryBtn) viewSummaryBtn.addEventListener("click", async () => {
+  setView("summary");
+  await renderSummaryTable();
+});
+
+if (viewEditorBtn) viewEditorBtn.addEventListener("click", () => {
+  setView("editor");
+});
+
+// Summary controls
+const sumSearchEl = document.getElementById("summarySearch");
+if (sumSearchEl){
+  sumSearchEl.addEventListener("input", async (e) => {
+    summarySearchQuery = String(e.target.value || "");
+    await renderSummaryTable();
+  });
+}
+
+const sumFavEl = document.getElementById("summaryFavOnly");
+if (sumFavEl){
+  sumFavEl.addEventListener("change", async (e) => {
+    summaryFavOnly = !!e.target.checked;
+    await renderSummaryTable();
+  });
+}
+
 
   maybeCleanLegacyTemplate();
 
@@ -594,6 +733,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (rowsState) updateTotalAndPricing(rowsState);
     });
   }
+      if (currentView === "summary") { renderSummaryTable(); }
+    });
+  })
 
   // Search + favorites filter
   const searchEl = document.getElementById("recipeSearch");
@@ -750,4 +892,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
+});
+
+
+  // Default landing: Summary
+  setView("summary");
+  await renderSummaryTable();
 });
