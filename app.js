@@ -560,7 +560,7 @@ function scheduleSave(){
 }
 
 async function createRecipeClean(name){
-  // Save current recipe settings before creating a new one
+  // Save current recipe settings before creating a new recipe
   persistCurrentRecipeSettingsFromUI();
 
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
@@ -600,6 +600,7 @@ function applyRecipeSettingsToUI(){
     if (marginEl) marginEl.value = String(n(s.marginPct));
     if (yieldEl) yieldEl.value = String(Math.max(1, n(s.yieldQty)));
   }catch(e){}
+}
 
 
 function persistCurrentRecipeSettingsFromUI(){
@@ -610,8 +611,6 @@ function persistCurrentRecipeSettingsFromUI(){
     const yq = yieldEl ? Math.max(1, n(yieldEl.value)) : 1;
     setRecipeSettings(currentRecipe, { marginPct: mp, yieldQty: yq });
   }catch(e){}
-}
-
 }
 
 function syncCurrentRecipeMetaUI(){
