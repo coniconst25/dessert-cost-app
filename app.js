@@ -1,3 +1,4 @@
+document.documentElement.classList.add("js-ok");
 /**
  * Dessert Cost Calculator — multi-recipe + persistent profiles (IndexedDB)
  * Minimal Drawer UI:
@@ -132,11 +133,14 @@ function ensureMetaForRecipe(meta, recipeName){
     meta[recipeName] = { favorite: false, marginPct: 30, yieldQty: 1 };
   }else{
     if (typeof meta[recipeName].favorite !== "boolean") meta[recipeName].favorite = false;
-    if (!Number.isFinite(Number(meta[recipeName].marginPct))) meta[recipeName].marginPct = 30;
-    if (!Number.isFinite(Number(meta[recipeName].yieldQty)) || Number(meta[recipeName].yieldQty) <= 0) meta[recipeName].yieldQty = 1;
+    const mp = Number(meta[recipeName].marginPct);
+    const yq = Number(meta[recipeName].yieldQty);
+    if (!Number.isFinite(mp)) meta[recipeName].marginPct = 30;
+    if (!Number.isFinite(yq) || yq <= 0) meta[recipeName].yieldQty = 1;
   }
   return meta;
 }
+
 
 
 function getRecipeSettings(recipeName){
@@ -150,10 +154,29 @@ function setRecipeSettings(recipeName, patch){
   const meta = loadMeta();
   ensureMetaForRecipe(meta, recipeName);
   Object.assign(meta[recipeName], patch || {});
-  // sanitize
   ensureMetaForRecipe(meta, recipeName);
   saveMeta(meta);
   return meta[recipeName];
+}
+
+function applyRecipeSettingsToUI(){
+  try{
+    const s = getRecipeSettings(currentRecipe);
+    const marginEl = document.getElementById("marginPct");
+    const yieldEl = document.getElementById("yieldQty");
+    if (marginEl) marginEl.value = String(n(s.marginPct));
+    if (yieldEl) yieldEl.value = String(Math.max(1, n(s.yieldQty)));
+  }catch(e){}
+}
+
+function persistCurrentRecipeSettingsFromUI(){
+  try{
+    const marginEl = document.getElementById("marginPct");
+    const yieldEl = document.getElementById("yieldQty");
+    const mp = marginEl ? n(marginEl.value) : 0;
+    const yq = yieldEl ? Math.max(1, n(yieldEl.value)) : 1;
+    setRecipeSettings(currentRecipe, { marginPct: mp, yieldQty: yq });
+  }catch(e){}
 }
 
 /* =========================
@@ -530,9 +553,8 @@ async function ensureRowsForRecipe(recipeName){
 }
 
 async function switchRecipe(recipeName, persist){
-  // Save current recipe settings before switching
+  // Save settings for current recipe before switching
   persistCurrentRecipeSettingsFromUI();
-
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
   currentRecipe = recipeName;
@@ -548,7 +570,7 @@ async function switchRecipe(recipeName, persist){
   }catch{}
 
   setRecipeTitle();
-  if (typeof syncSettingsToUI === "function") syncSettingsToUI();
+  applyRecipeSettingsToUI();
   renderTable();
 }
 
@@ -560,9 +582,8 @@ function scheduleSave(){
 }
 
 async function createRecipeClean(name){
-  // Save current recipe settings before creating a new recipe
+  // Save settings for current recipe before creating
   persistCurrentRecipeSettingsFromUI();
-
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
   try{ localStorage.removeItem(getRowsKey(name)); }catch{}
@@ -583,34 +604,12 @@ async function createRecipeClean(name){
   saveRowsForRecipe(name, rowsState);
 
   setRecipeTitle();
-  if (typeof syncSettingsToUI === "function") syncSettingsToUI();
+  applyRecipeSettingsToUI();
   renderTable();
 
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
   closeDrawer();
-}
-
-
-function applyRecipeSettingsToUI(){
-  try{
-    const s = getRecipeSettings(currentRecipe);
-    const marginEl = document.getElementById("marginPct");
-    const yieldEl = document.getElementById("yieldQty");
-    if (marginEl) marginEl.value = String(n(s.marginPct));
-    if (yieldEl) yieldEl.value = String(Math.max(1, n(s.yieldQty)));
-  }catch(e){}
-}
-
-
-function persistCurrentRecipeSettingsFromUI(){
-  try{
-    const marginEl = document.getElementById("marginPct");
-    const yieldEl = document.getElementById("yieldQty");
-    const mp = marginEl ? n(marginEl.value) : 0;
-    const yq = yieldEl ? Math.max(1, n(yieldEl.value)) : 1;
-    setRecipeSettings(currentRecipe, { marginPct: mp, yieldQty: yq });
-  }catch(e){}
 }
 
 function syncCurrentRecipeMetaUI(){
@@ -977,33 +976,17 @@ if (sumFavEl){
 const marginEl = document.getElementById("marginPct");
 const yieldEl = document.getElementById("yieldQty");
 
-function syncSettingsToUI(){
-  const s = getRecipeSettings(currentRecipe);
-  if (marginEl) marginEl.value = String(n(s.marginPct));
-  if (yieldEl) yieldEl.value = String(Math.max(1, n(s.yieldQty)));
+// On load / after DB init
+applyRecipeSettingsToUI();
+
+function onSettingsChange(){
+  persistCurrentRecipeSettingsFromUI();
+  if (rowsState) updateTotalAndPricing(rowsState);
+  if (currentView === "summary") { renderSummaryTable(); }
 }
 
-function persistSettingsFromUI(){
-  const mp = marginEl ? n(marginEl.value) : 0;
-  const yq = yieldEl ? Math.max(1, n(yieldEl.value)) : 1;
-  setRecipeSettings(currentRecipe, { marginPct: mp, yieldQty: yq });
-}
-
-if (marginEl){
-  marginEl.addEventListener("input", () => {
-    persistSettingsFromUI();
-    if (rowsState) updateTotalAndPricing(rowsState);
-    if (currentView === "summary") { renderSummaryTable(); }
-  });
-}
-
-if (yieldEl){
-  yieldEl.addEventListener("input", () => {
-    persistSettingsFromUI();
-    if (rowsState) updateTotalAndPricing(rowsState);
-    if (currentView === "summary") { renderSummaryTable(); }
-  });
-}
+if (marginEl) marginEl.addEventListener("input", onSettingsChange);
+if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
 
 // Search + favorites filter
   const searchEl = document.getElementById("recipeSearch");
@@ -1156,7 +1139,7 @@ if (yieldEl){
   }catch{}
 
   setRecipeTitle();
-  if (typeof syncSettingsToUI === "function") syncSettingsToUI();
+  applyRecipeSettingsToUI();
   renderTable();
 
   await refreshRecipesUI();
