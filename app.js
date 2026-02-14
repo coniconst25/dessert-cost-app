@@ -397,9 +397,9 @@ function renderRecipeList(recipeNames){
     const left = document.createElement("div");
     left.className = "recipeLeft";
     left.style.minWidth = "0";
+    const starBadge = m.favorite ? '<span class="pill">★</span>' : '';
+    left.innerHTML = `<div class="recipeName"><span>${escapeHtml(name)}</span> ${starBadge}</div>`;
 
-    const star = m.favorite ? "★" : "☆";
-    left.innerHTML = `<div class="recipeName"><span>${escapeHtml(name)}</span> <span class="pill">${star}</span></div>`;
 
     const right = document.createElement("div");
     right.style.display = "flex";
@@ -731,9 +731,11 @@ if (sumFavEl){
     marginEl.addEventListener("input", (e) => {
       saveMarginPct(n(e.target.value));
       if (rowsState) updateTotalAndPricing(rowsState);
-      if (currentView === "summary") { renderSummaryTable(); }
     });
   }
+      if (currentView === "summary") { renderSummaryTable(); }
+    });
+  })
 
   // Search + favorites filter
   const searchEl = document.getElementById("recipeSearch");
@@ -890,6 +892,8 @@ if (sumFavEl){
 
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
+});
+
 
   // Default landing: Summary
   setView("summary");
