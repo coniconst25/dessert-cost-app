@@ -903,3 +903,45 @@ header .settings .menu .menuItem:active{
     width: auto !important;
   }
 }
+
+
+
+/* =====================================================
+   iPhone Safe-Area / Notch FIX (viewport-fit=cover)
+   ===================================================== */
+
+:root{
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sal: env(safe-area-inset-left);
+  --sab: env(safe-area-inset-bottom);
+}
+
+/* Top bar protected from notch */
+.topbar{
+  padding-top: calc(14px + var(--sat)) !important;
+  padding-left: calc(16px + var(--sal)) !important;
+  padding-right: calc(16px + var(--sar)) !important;
+}
+
+/* Drawer also respects safe area */
+.drawer{
+  padding-top: calc(16px + var(--sat)) !important;
+  padding-bottom: calc(16px + var(--sab)) !important;
+}
+
+/* Prevent bottom content being hidden by home indicator */
+main, .main, #main, .container{
+  padding-bottom: calc(20px + var(--sab));
+}
+
+/* If header is fixed, ensure it starts below notch */
+header.topbar{
+  top: 0;
+}
+
+/* Extra safety for fixed positioned elements */
+.fixed-top{
+  top: var(--sat);
+}
+
