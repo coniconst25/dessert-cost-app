@@ -215,36 +215,5 @@
 <!-- Cache-bust -->
 <script src="./app.js?v=1" defer></script>
 
-<script>
-/* Guard: if app.js didn't bind events, show a helpful hint */
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    const openBtn = document.getElementById('openDrawerBtn');
-    const sumBtn  = document.getElementById('viewSummaryBtn');
-    const edBtn   = document.getElementById('viewEditorBtn');
-
-    function attachHint(el){
-      if (!el) return;
-      // If the element already has listeners from app.js, we do nothing.
-      // We can't reliably detect that, so we attach a once handler that only fires if nothing changes.
-      el.addEventListener('click', () => {
-        const body = document.body;
-        const had = body.classList.contains('drawer-open');
-        // if after a tick nothing changes, show hint
-        setTimeout(() => {
-          const now = body.classList.contains('drawer-open');
-          if (had === now){
-            alert("Parece que app.js no se está cargando (o está cacheado). Verifica que existan ./app.js y ./style.css en el repo y que no tengas service-worker activo.");
-          }
-        }, 50);
-      }, { once: true });
-    }
-
-    attachHint(openBtn);
-    attachHint(sumBtn);
-    attachHint(edBtn);
-  }, 200);
-});
-</script>
 </body>
 </html>
