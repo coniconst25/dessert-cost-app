@@ -724,20 +724,18 @@ if (sumFavEl){
 
   maybeCleanLegacyTemplate();
 
-  // Margin init
-  const marginEl = document.getElementById("marginPct");
-  if (marginEl){
-    marginEl.value = String(loadMarginPct());
-    marginEl.addEventListener("input", (e) => {
-      saveMarginPct(n(e.target.value));
-      if (rowsState) updateTotalAndPricing(rowsState);
-    });
-  }
-      if (currentView === "summary") { renderSummaryTable(); }
-    });
-  })
+// Margin init
+const marginEl = document.getElementById("marginPct");
+if (marginEl){
+  marginEl.value = String(loadMarginPct());
+  marginEl.addEventListener("input", (e) => {
+    saveMarginPct(n(e.target.value));
+    if (rowsState) updateTotalAndPricing(rowsState);
+    if (currentView === "summary") { renderSummaryTable(); }
+  });
+}
 
-  // Search + favorites filter
+// Search + favorites filter
   const searchEl = document.getElementById("recipeSearch");
   if (searchEl){
     searchEl.addEventListener("input", async (e) => {
@@ -892,8 +890,6 @@ if (sumFavEl){
 
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
-});
-
 
   // Default landing: Summary
   setView("summary");
