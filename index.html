@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#f3dfe4">
 
   <!-- Cache-bust -->
-  <link rel="stylesheet" href="style.css?v=20260214a" />
+  <link rel="stylesheet" href="./style.css?v=20260214b" />
 </head>
 <body>
 
@@ -182,22 +182,38 @@
 </main>
 
 <!-- Cache-bust -->
-<script src="app.js?v=20260214a" defer></script>
+<script src="./app.js?v=20260214b" defer></script>
 
 <script>
-/* Force-refresh: disable old Service Workers + clear caches (safe for GitHub Pages) */
-(async () => {
-  try{
-    if ('serviceWorker' in navigator){
-      const regs = await navigator.serviceWorker.getRegistrations();
-      for (const r of regs) { try{ await r.unregister(); }catch(e){} }
+/* Guard: if app.js didn't bind events, show a helpful hint */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const openBtn = document.getElementById('openDrawerBtn');
+    const sumBtn  = document.getElementById('viewSummaryBtn');
+    const edBtn   = document.getElementById('viewEditorBtn');
+
+    function attachHint(el){
+      if (!el) return;
+      // If the element already has listeners from app.js, we do nothing.
+      // We can't reliably detect that, so we attach a once handler that only fires if nothing changes.
+      el.addEventListener('click', () => {
+        const body = document.body;
+        const had = body.classList.contains('drawer-open');
+        // if after a tick nothing changes, show hint
+        setTimeout(() => {
+          const now = body.classList.contains('drawer-open');
+          if (had === now){
+            alert("Parece que app.js no se está cargando (o está cacheado). Verifica que existan ./app.js y ./style.css en el repo y que no tengas service-worker activo.");
+          }
+        }, 50);
+      }, { once: true });
     }
-    if (window.caches){
-      const keys = await caches.keys();
-      for (const k of keys) { try{ await caches.delete(k); }catch(e){} }
-    }
-  }catch(e){}
-})();
+
+    attachHint(openBtn);
+    attachHint(sumBtn);
+    attachHint(edBtn);
+  }, 200);
+});
 </script>
 </body>
 </html>
