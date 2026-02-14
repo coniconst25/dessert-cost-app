@@ -397,9 +397,9 @@ function renderRecipeList(recipeNames){
     const left = document.createElement("div");
     left.className = "recipeLeft";
     left.style.minWidth = "0";
+
     const starBadge = m.favorite ? '<span class="pill">★</span>' : '';
     left.innerHTML = `<div class="recipeName"><span>${escapeHtml(name)}</span> ${starBadge}</div>`;
-
 
     const right = document.createElement("div");
     right.style.display = "flex";
@@ -724,7 +724,7 @@ if (sumFavEl){
 
   maybeCleanLegacyTemplate();
 
-// Margin init
+  // Margin init
 const marginEl = document.getElementById("marginPct");
 if (marginEl){
   marginEl.value = String(loadMarginPct());
