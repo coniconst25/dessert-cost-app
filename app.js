@@ -129,11 +129,31 @@ function saveMeta(meta){
 }
 function ensureMetaForRecipe(meta, recipeName){
   if (!meta[recipeName] || typeof meta[recipeName] !== "object"){
-    meta[recipeName] = { favorite: false };
+    meta[recipeName] = { favorite: false, marginPct: 30, yieldQty: 1 };
   }else{
     if (typeof meta[recipeName].favorite !== "boolean") meta[recipeName].favorite = false;
+    if (!Number.isFinite(Number(meta[recipeName].marginPct))) meta[recipeName].marginPct = 30;
+    if (!Number.isFinite(Number(meta[recipeName].yieldQty)) || Number(meta[recipeName].yieldQty) <= 0) meta[recipeName].yieldQty = 1;
   }
   return meta;
+}
+
+
+function getRecipeSettings(recipeName){
+  const meta = loadMeta();
+  ensureMetaForRecipe(meta, recipeName);
+  saveMeta(meta);
+  return meta[recipeName];
+}
+
+function setRecipeSettings(recipeName, patch){
+  const meta = loadMeta();
+  ensureMetaForRecipe(meta, recipeName);
+  Object.assign(meta[recipeName], patch || {});
+  // sanitize
+  ensureMetaForRecipe(meta, recipeName);
+  saveMeta(meta);
+  return meta[recipeName];
 }
 
 /* =========================
@@ -324,6 +344,17 @@ function updateTotalAndPricing(rows){
   const finalPrice = Math.round(total * (1 + marginPct / 100));
   const finalCell = document.getElementById("finalPriceCell");
   if (finalCell) finalCell.textContent = moneyInt(finalPrice);
+
+  const yieldEl = document.getElementById("yieldQty");
+  const yieldQty = Math.max(1, n(yieldEl ? yieldEl.value : 1));
+
+  const unitCost = total / yieldQty;
+  const unitPrice = finalPrice / yieldQty;
+
+  const unitCostCell = document.getElementById("unitCostCell");
+  const unitPriceCell = document.getElementById("unitPriceCell");
+  if (unitCostCell) unitCostCell.textContent = money(unitCost);
+  if (unitPriceCell) unitPriceCell.textContent = moneyInt(unitPrice);
 }
 
 function renumberDOMIndices(){
@@ -514,6 +545,7 @@ async function switchRecipe(recipeName, persist){
   }catch{}
 
   setRecipeTitle();
+  if (typeof syncSettingsToUI === "function") syncSettingsToUI();
   renderTable();
 }
 
@@ -545,11 +577,23 @@ async function createRecipeClean(name){
   saveRowsForRecipe(name, rowsState);
 
   setRecipeTitle();
+  if (typeof syncSettingsToUI === "function") syncSettingsToUI();
   renderTable();
 
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
   closeDrawer();
+}
+
+
+function applyRecipeSettingsToUI(){
+  try{
+    const s = getRecipeSettings(currentRecipe);
+    const marginEl = document.getElementById("marginPct");
+    const yieldEl = document.getElementById("yieldQty");
+    if (marginEl) marginEl.value = String(n(s.marginPct));
+    if (yieldEl) yieldEl.value = String(Math.max(1, n(s.yieldQty)));
+  }catch(e){}
 }
 
 function syncCurrentRecipeMetaUI(){
@@ -637,7 +681,8 @@ async function renderSummaryTable(){
   const tbody = document.getElementById("summaryTbody");
   if (!tbody) return;
 
-  const marginPct = getMarginPctFromUI();
+  // Margin is per-recipe (stored in meta)
+
   const names = await listAllRecipeNames();
   const filtered = names.filter(matchesSummaryFilters);
 
@@ -653,7 +698,8 @@ async function renderSummaryTable(){
   for (const name of filtered){
     const rows = await getRowsForSummary(name);
     const total = computeTotal(rows);
-    const finalPrice = Math.round(total * (1 + marginPct / 100));
+    const s = getRecipeSettings(name);
+    const finalPrice = Math.round(total * (1 + n(s.marginPct) / 100));
 
     const tr = document.createElement("tr");
     tr.className = "summaryRow";
@@ -730,10 +776,16 @@ async function exportIngredientsDB(){
 
   itemsOut.sort((a,b) => (a.recipe.localeCompare(b.recipe) || a.ingredient.localeCompare(b.ingredient)));
 
+  const recipesOut = names.map(rn => {
+    const s = getRecipeSettings(rn);
+    return { recipe: rn, marginPct: n(s.marginPct), yieldQty: Math.max(1, n(s.yieldQty)) };
+  });
+
   const payload = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
-    items: itemsOut
+    items: itemsOut,
+    recipes: recipesOut
   };
 
   downloadJson("dessert_ingredients_db.json", payload);
@@ -780,6 +832,21 @@ async function importIngredientsDBFromObject(obj){
       await dbPutItems(DB, recipe, rows);
     }
   }
+
+
+// Restore recipe settings if present (version 2+)
+if (Array.isArray(obj.recipes)){
+  for (const r of obj.recipes){
+    const rn = String(r && (r.recipe || r.name) || "").trim();
+    if (!rn) continue;
+    const mp = Number(r.marginPct);
+    const yq = Number(r.yieldQty);
+    setRecipeSettings(rn, {
+      marginPct: Number.isFinite(mp) ? mp : 30,
+      yieldQty: (Number.isFinite(yq) && yq > 0) ? yq : 1
+    });
+  }
+}
 
   // Refresh UI
   await refreshRecipesUI();
@@ -889,12 +956,33 @@ if (sumFavEl){
 
   maybeCleanLegacyTemplate();
 
-  // Margin init
+  // Recipe settings (margin + yield)
 const marginEl = document.getElementById("marginPct");
+const yieldEl = document.getElementById("yieldQty");
+
+function syncSettingsToUI(){
+  const s = getRecipeSettings(currentRecipe);
+  if (marginEl) marginEl.value = String(n(s.marginPct));
+  if (yieldEl) yieldEl.value = String(Math.max(1, n(s.yieldQty)));
+}
+
+function persistSettingsFromUI(){
+  const mp = marginEl ? n(marginEl.value) : 0;
+  const yq = yieldEl ? Math.max(1, n(yieldEl.value)) : 1;
+  setRecipeSettings(currentRecipe, { marginPct: mp, yieldQty: yq });
+}
+
 if (marginEl){
-  marginEl.value = String(loadMarginPct());
-  marginEl.addEventListener("input", (e) => {
-    saveMarginPct(n(e.target.value));
+  marginEl.addEventListener("input", () => {
+    persistSettingsFromUI();
+    if (rowsState) updateTotalAndPricing(rowsState);
+    if (currentView === "summary") { renderSummaryTable(); }
+  });
+}
+
+if (yieldEl){
+  yieldEl.addEventListener("input", () => {
+    persistSettingsFromUI();
     if (rowsState) updateTotalAndPricing(rowsState);
     if (currentView === "summary") { renderSummaryTable(); }
   });
@@ -1051,6 +1139,7 @@ if (marginEl){
   }catch{}
 
   setRecipeTitle();
+  if (typeof syncSettingsToUI === "function") syncSettingsToUI();
   renderTable();
 
   await refreshRecipesUI();
