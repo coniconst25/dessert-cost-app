@@ -642,3 +642,8 @@ body.drawer-open .drawer{
   border-radius: 999px;
   background: rgba(34,197,94,0.06);
 }
+
+
+/* Favorite badge neutralization (remove colored background/border) */
+.summaryName .star{ background: transparent; border: none; padding: 0; }
+.recipeItem .pill{ background: transparent; border: none; padding: 0; }
