@@ -397,11 +397,8 @@ function renderRecipeList(recipeNames){
     const left = document.createElement("div");
     left.className = "recipeLeft";
     left.style.minWidth = "0";
-
-    const starBadge = m.favorite ? '<span class="pill">★</span>' : '';
-    left.innerHTML = `<div class="recipeName"><span>${escapeHtml(name)}</span> ${starBadge}</div>`;
-
-    const right = document.createElement("div");
+    left.innerHTML = `<div class="recipeName"><span>${escapeHtml(name)}</span></div>`;
+const right = document.createElement("div");
     right.style.display = "flex";
     right.style.gap = "8px";
     right.style.alignItems = "center";
@@ -663,7 +660,7 @@ async function renderSummaryTable(){
     tr.innerHTML = `
       <td class="summaryName">
         <span class="name">${escapeHtml(name)}</span>
-        ${recipeIsFavorite(name) ? '<span class="star">★</span>' : ''}
+        
       </td>
       <td>${money(total)}</td>
       <td>${moneyInt(finalPrice)}</td>
