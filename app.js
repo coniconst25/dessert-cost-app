@@ -731,11 +731,9 @@ if (sumFavEl){
     marginEl.addEventListener("input", (e) => {
       saveMarginPct(n(e.target.value));
       if (rowsState) updateTotalAndPricing(rowsState);
-    });
-  }
       if (currentView === "summary") { renderSummaryTable(); }
     });
-  })
+  }
 
   // Search + favorites filter
   const searchEl = document.getElementById("recipeSearch");
@@ -892,8 +890,6 @@ if (sumFavEl){
 
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
-});
-
 
   // Default landing: Summary
   setView("summary");
