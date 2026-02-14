@@ -822,55 +822,55 @@ async function exportIngredientsDB(){
 async function importIngredientsDBFromObject(obj){
   if (!obj || typeof obj !== "object") throw new Error("JSON inválido.");
 
-  // Accept v3 full export (preferred)
-  if (Array.isArray(obj.recipes)){
-    const meta = loadMeta();
+  
+// Accept v3 full export (preferred)
+if (Array.isArray(obj.recipes)){
+  const meta = loadMeta();
 
-    for (const rec of obj.recipes){
-      const recipeName = String(rec && rec.recipe || "").trim();
-      if (!recipeName) continue;
+  for (const rec of obj.recipes){
+    const recipeName = String(rec && rec.recipe || "").trim();
+    if (!recipeName) continue;
 
-      ensureMetaForRecipe(meta, recipeName);
+    // Ensure + restore meta fields directly (IMPORTANT: do not overwrite later)
+    ensureMetaForRecipe(meta, recipeName);
 
-      // Restore favorite + settings
-      const mp = Number(rec.marginPct);
-      const yq = Number(rec.yieldQty);
-      meta[recipeName].favorite = !!rec.favorite;
+    const mp = Number(rec.marginPct);
+    const yq = Number(rec.yieldQty);
 
-      setRecipeSettings(recipeName, {
-        marginPct: Number.isFinite(mp) ? mp : 30,
-        yieldQty: (Number.isFinite(yq) && yq > 0) ? yq : 1
-      });
+    meta[recipeName].favorite = !!rec.favorite;
+    meta[recipeName].marginPct = Number.isFinite(mp) ? mp : meta[recipeName].marginPct;
+    meta[recipeName].yieldQty  = (Number.isFinite(yq) && yq > 0) ? yq : meta[recipeName].yieldQty;
 
-      // Restore rows
-      const rowsIn = Array.isArray(rec.rows) ? rec.rows : [];
-      const restored = rowsIn
-        .map(r => ({
-          name: String(r && r.ingredient || "").trim(),
-          cost: n(r && r.cost),
-          amount: n(r && r.amount),
-          recipeAmount: n(r && r.recipeAmount),
-        }))
-        .filter(r => r.name);
+    // Restore rows
+    const rowsIn = Array.isArray(rec.rows) ? rec.rows : [];
+    const restored = rowsIn
+      .map(r => ({
+        name: String(r && r.ingredient || "").trim(),
+        cost: n(r && r.cost),
+        amount: n(r && r.amount),
+        recipeAmount: n(r && r.recipeAmount),
+      }))
+      .filter(r => r.name);
 
-      saveRowsForRecipe(recipeName, restored.length ? restored : defaultRows());
+    saveRowsForRecipe(recipeName, restored.length ? restored : defaultRows());
 
-      // Also update IndexedDB store if available (only ingredient + amount used there)
-      if (DB){
-        const dbRows = restored.map(r => ({ name: r.name, recipeAmount: r.recipeAmount }));
-        await dbPutItems(DB, recipeName, dbRows);
-      }
+    // Also update IndexedDB store if available (ingredient + recipeAmount)
+    if (DB){
+      const dbRows = restored.map(r => ({ name: r.name, recipeAmount: r.recipeAmount }));
+      await dbPutItems(DB, recipeName, dbRows);
     }
-
-    saveMeta(meta);
-
-    // Refresh UI
-    await refreshRecipesUI();
-    applyRecipeSettingsToUI();
-    if (rowsState) updateTotalAndPricing(rowsState);
-    if (currentView === "summary") await renderSummaryTable();
-    return;
   }
+
+  // Single save at the end (prevents wiping margin/yield back to defaults)
+  saveMeta(meta);
+
+  // Refresh UI
+  await refreshRecipesUI();
+  applyRecipeSettingsToUI();
+  if (rowsState) updateTotalAndPricing(rowsState);
+  if (currentView === "summary") await renderSummaryTable();
+  return;
+}
 
   // Backward-compat: accept v2 format {items:[{recipe,ingredient}], recipes:[{recipe,marginPct,yieldQty}]}
   const items = Array.isArray(obj.items) ? obj.items : null;
