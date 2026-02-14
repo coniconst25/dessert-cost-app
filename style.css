@@ -745,3 +745,37 @@ body.drawer-open .drawer{
     width: min(92vw, 360px);
   }
 }
+
+
+/* ===== Force header vertical layout (tabs above title) ===== */
+
+.brand{
+  display: flex;
+  flex-direction: column !important;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.tabsRow{
+  order: 1;
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.titleBlock{
+  order: 2;
+  width: 100%;
+}
+
+.titleBlock #recipeTitle{
+  font-size: 18px;
+}
+
+@media (max-width: 520px){
+  .titleBlock #recipeTitle{
+    font-size: 16px;
+  }
+}
+
