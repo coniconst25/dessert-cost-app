@@ -71,14 +71,18 @@
 
 <header class="topbar">
   <div class="brand">
-    <button id="openDrawerBtn" class="hamburger" type="button" aria-label="Open menu">☰</button>
+    <div class="tabsRow">
+      <button id="openDrawerBtn" class="hamburger" type="button" aria-label="Open menu">☰</button>
       <button id="viewSummaryBtn" class="tabBtn" type="button" aria-label="Resumen">Resumen</button>
-<button id="viewEditorBtn" class="tabBtn" type="button" aria-label="Editor">Editor</button>
-    <div>
+      <button id="viewEditorBtn" class="tabBtn" type="button" aria-label="Editor">Editor</button>
+    </div>
+
+    <div class="titleBlock">
       <h1 id="recipeTitle">Calculadora de Costos</h1>
       <p class="sub">Ingrediente → Costo Unitario → Costo Receta</p>
     </div>
   </div>
+
   <div class="actions">
     <button id="addRowBtn" class="btn" type="button">+ Añadir</button>
     <button id="resetBtn" class="btn btn-secondary" type="button">Reiniciar</button>
