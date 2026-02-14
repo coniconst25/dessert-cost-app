@@ -876,3 +876,20 @@ header .settings .menu .menuItem:hover{
 header .settings .menu .menuItem:active{
   background: rgba(255,255,255,0.08) !important;
 }
+
+
+/* Yield input in pricing section */
+#yieldQty{
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+}
+#yieldQty:focus{
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
