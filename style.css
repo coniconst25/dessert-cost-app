@@ -878,18 +878,28 @@ header .settings .menu .menuItem:active{
 }
 
 
-/* Yield input in pricing section */
-#yieldQty{
-  width: 100%;
-  padding: 8px 10px;
-  font-size: 13px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  color: var(--text);
+
+/* ===== Responsive settings dropdown (mobile) ===== */
+.settings{
+  position: relative;
 }
-#yieldQty:focus{
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+
+.settings .menu{
+  max-width: min(92vw, 360px);
+  width: max-content;
+}
+
+@media (max-width: 520px){
+  header .settings{
+    width: auto;
+  }
+
+  header .settings .menu{
+    position: fixed;
+    right: 12px !important;
+    left: 12px !important;
+    top: 64px !important; /* below topbar */
+    max-width: none !important;
+    width: auto !important;
+  }
 }
