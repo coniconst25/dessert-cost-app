@@ -1,7 +1,11 @@
 /**
  * Dessert Cost Calculator — multi-recipe + persistent profiles (IndexedDB)
- * + Favorites + Folders + Search + Safe migration (non-destructive)
- * + Backup Export/Import JSON (safe)
+ * Minimal Drawer UI:
+ * - Buscar recetas
+ * - Lista de recetas (todas)
+ * - Filtro: solo favoritas
+ *
+ * (Se eliminó todo lo asociado a carpetas y respaldo)
  */
 
 const CURRENT_RECIPE_KEY = "dessert_current_recipe_v2";
@@ -10,13 +14,8 @@ const ING_CACHE_KEY      = "dessert_ingredient_cache_v2";
 const MARGIN_KEY         = "dessert_margin_pct_v2";
 const CLEAN_TEMPLATE_FLAG = "dessert_cleaned_legacy_template_v2";
 
-// NEW (metadata) keys — safe additions
-const META_KEY_V1        = "dessert_recipe_meta_v1";     // { [recipeName]: { favorite:boolean, folder:string } }
-const FOLDERS_KEY_V1     = "dessert_folders_v1";         // [ "Tortas", "Chocolate", ... ]
-const MIGRATION_FLAG_V1  = "dessert_migration_meta_v1_done";
-
-// Backup helper key (only for re-download last)
-const LAST_BACKUP_KEY_V1 = "dessert_last_backup_json_v1";
+// Favorites metadata (safe addition)
+const META_KEY_V1        = "dessert_recipe_meta_v1"; // { [recipeName]: { favorite:boolean } }
 
 // IndexedDB
 const DB_NAME = "dessert_profiles_db_v2";
@@ -29,7 +28,6 @@ let rowsState = null;
 
 // Drawer filter state (UI-only; not persisted)
 let searchQuery = "";
-let filterFolder = "";
 let favOnly = false;
 
 // debounce save
@@ -114,25 +112,8 @@ function saveIngredientCache(cache){
 }
 
 /* =========================
-   Meta + folders (safe)
+   Favorites meta
    ========================= */
-function loadFolders(){
-  try{
-    const raw = localStorage.getItem(FOLDERS_KEY_V1);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.filter(x => typeof x === "string" && x.trim()).map(s => s.trim()) : [];
-  }catch{
-    return [];
-  }
-}
-function saveFolders(folders){
-  const clean = Array.from(new Set((folders || []).map(s => String(s || "").trim()).filter(Boolean)))
-    .sort((a,b)=>a.localeCompare(b));
-  localStorage.setItem(FOLDERS_KEY_V1, JSON.stringify(clean));
-  return clean;
-}
-
 function loadMeta(){
   try{
     const raw = localStorage.getItem(META_KEY_V1);
@@ -146,33 +127,13 @@ function loadMeta(){
 function saveMeta(meta){
   localStorage.setItem(META_KEY_V1, JSON.stringify(meta || {}));
 }
-
 function ensureMetaForRecipe(meta, recipeName){
   if (!meta[recipeName] || typeof meta[recipeName] !== "object"){
-    meta[recipeName] = { favorite: false, folder: "" };
+    meta[recipeName] = { favorite: false };
   }else{
     if (typeof meta[recipeName].favorite !== "boolean") meta[recipeName].favorite = false;
-    if (typeof meta[recipeName].folder !== "string") meta[recipeName].folder = "";
   }
   return meta;
-}
-
-function runSafeMigration(){
-  try{
-    if (localStorage.getItem(MIGRATION_FLAG_V1) === "1") return;
-
-    const existingMeta = localStorage.getItem(META_KEY_V1);
-    const existingFolders = localStorage.getItem(FOLDERS_KEY_V1);
-    if (existingMeta || existingFolders){
-      localStorage.setItem(MIGRATION_FLAG_V1, "1");
-      return;
-    }
-
-    // Initialize empty, non-destructive
-    saveFolders([]);
-    saveMeta({});
-    localStorage.setItem(MIGRATION_FLAG_V1, "1");
-  }catch{}
 }
 
 /* =========================
@@ -215,7 +176,9 @@ function computeTotal(rows){
 function openDrawer(){ document.body.classList.add("drawer-open"); }
 function closeDrawer(){ document.body.classList.remove("drawer-open"); }
 
-// IndexedDB
+/* =========================
+   IndexedDB
+   ========================= */
 function openDB(){
   return new Promise((resolve, reject) => {
     if (!("indexedDB" in window)) return reject(new Error("IndexedDB not available"));
@@ -303,7 +266,9 @@ async function dbDeleteRecipe(db, recipeName){
   });
 }
 
-// UI helpers
+/* =========================
+   UI helpers
+   ========================= */
 function setRecipeTitle(){
   const el = document.getElementById("recipeTitle");
   if (el) el.textContent = currentRecipe;
@@ -399,12 +364,6 @@ function matchesFilters(recipeName, meta){
     const m = meta[recipeName];
     if (!m || !m.favorite) return false;
   }
-
-  if (filterFolder){
-    const m = meta[recipeName];
-    const fd = (m && typeof m.folder === "string") ? m.folder : "";
-    if (fd !== filterFolder) return false;
-  }
   return true;
 }
 
@@ -429,7 +388,7 @@ function renderRecipeList(recipeNames){
   }
 
   for (const name of filtered){
-    const m = meta[name] || { favorite:false, folder:"" };
+    const m = meta[name] || { favorite:false };
 
     const div = document.createElement("div");
     div.className = "recipeItem" + (name === currentRecipe ? " active" : "");
@@ -440,11 +399,7 @@ function renderRecipeList(recipeNames){
     left.style.minWidth = "0";
 
     const star = m.favorite ? "★" : "☆";
-    const folderBadge = m.folder ? `<span class="badge">${escapeHtml(m.folder)}</span>` : `<span class="badge">(Sin carpeta)</span>`;
-
-    left.innerHTML =
-      `<div class="recipeName"><span>${escapeHtml(name)}</span> <span class="pill">${star}</span></div>` +
-      `<div>${folderBadge}</div>`;
+    left.innerHTML = `<div class="recipeName"><span>${escapeHtml(name)}</span> <span class="pill">${star}</span></div>`;
 
     const right = document.createElement("div");
     right.style.display = "flex";
@@ -494,7 +449,6 @@ function renderRecipeList(recipeNames){
 
         closeDrawer();
         await refreshRecipesUI();
-        await refreshFoldersUI();
         syncCurrentRecipeMetaUI();
       }catch(err){
         console.error("Delete recipe failed:", err);
@@ -522,7 +476,6 @@ function renderRecipeList(recipeNames){
 async function refreshRecipesUI(){
   const merged = await listAllRecipeNames();
   renderRecipeList(merged);
-  refreshFolderFilterOptions();
 }
 
 async function ensureRowsForRecipe(recipeName){
@@ -585,7 +538,6 @@ async function createRecipeClean(name){
   try{
     const meta = loadMeta();
     ensureMetaForRecipe(meta, name);
-    if (filterFolder) meta[name].folder = filterFolder;
     saveMeta(meta);
   }catch{}
 
@@ -599,117 +551,8 @@ async function createRecipeClean(name){
   renderTable();
 
   await refreshRecipesUI();
-  await refreshFoldersUI();
   syncCurrentRecipeMetaUI();
   closeDrawer();
-}
-
-/* =========================
-   Folders UI
-   ========================= */
-function refreshFolderSelectOptions(){
-  const folders = loadFolders();
-  const currentSel = document.getElementById("currentFolderSelect");
-  if (currentSel){
-    const prev = currentSel.value || "";
-    currentSel.innerHTML = `<option value="">(Sin carpeta)</option>` + folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
-    currentSel.value = folders.includes(prev) ? prev : "";
-  }
-}
-
-function refreshFolderFilterOptions(){
-  const folders = loadFolders();
-  const filterSel = document.getElementById("folderFilter");
-  if (!filterSel) return;
-  const prev = filterSel.value || "";
-  filterSel.innerHTML = `<option value="">Todas</option>` + folders.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join("");
-  filterSel.value = folders.includes(prev) ? prev : (prev === "" ? "" : "");
-}
-
-function renderFoldersList(){
-  const wrap = document.getElementById("foldersList");
-  if (!wrap) return;
-
-  const folders = loadFolders();
-  wrap.innerHTML = "";
-
-  if (!folders.length){
-    const empty = document.createElement("div");
-    empty.className = "pill";
-    empty.style.padding = "10px";
-    empty.textContent = "Aún no tienes carpetas. Crea una arriba.";
-    wrap.appendChild(empty);
-    return;
-  }
-
-  for (const f of folders){
-    const row = document.createElement("div");
-    row.className = "folderItem";
-
-    const left = document.createElement("div");
-    left.className = "folderName";
-    left.textContent = f;
-
-    const right = document.createElement("div");
-    right.style.display = "flex";
-    right.style.gap = "8px";
-    right.style.alignItems = "center";
-
-    const applyBtn = document.createElement("button");
-    applyBtn.className = "iconBtn";
-    applyBtn.type = "button";
-    applyBtn.textContent = "Filtrar";
-    applyBtn.addEventListener("click", async () => {
-      filterFolder = f;
-      const sel = document.getElementById("folderFilter");
-      if (sel) sel.value = f;
-      await refreshRecipesUI();
-    });
-
-    const delBtn = document.createElement("button");
-    delBtn.className = "iconBtn danger";
-    delBtn.type = "button";
-    delBtn.textContent = "Eliminar";
-    delBtn.addEventListener("click", async () => {
-      const ok = confirm(`¿Eliminar la carpeta "${f}"?\n\nEsto NO elimina recetas, solo las deja sin carpeta.`);
-      if (!ok) return;
-
-      let folders2 = loadFolders().filter(x => x !== f);
-      folders2 = saveFolders(folders2);
-
-      const meta = loadMeta();
-      for (const rn of Object.keys(meta)){
-        if (meta[rn] && meta[rn].folder === f){
-          meta[rn].folder = "";
-        }
-      }
-      saveMeta(meta);
-
-      if (filterFolder === f) filterFolder = "";
-      const filterSel = document.getElementById("folderFilter");
-      if (filterSel) filterSel.value = filterFolder;
-
-      refreshFolderSelectOptions();
-      refreshFolderFilterOptions();
-      renderFoldersList();
-      syncCurrentRecipeMetaUI();
-      await refreshRecipesUI();
-    });
-
-    right.appendChild(applyBtn);
-    right.appendChild(delBtn);
-
-    row.appendChild(left);
-    row.appendChild(right);
-
-    wrap.appendChild(row);
-  }
-}
-
-async function refreshFoldersUI(){
-  refreshFolderSelectOptions();
-  refreshFolderFilterOptions();
-  renderFoldersList();
 }
 
 function syncCurrentRecipeMetaUI(){
@@ -725,275 +568,12 @@ function syncCurrentRecipeMetaUI(){
     favBtn.classList.toggle("favOn", !!m.favorite);
     favBtn.title = m.favorite ? "Quitar de favoritas" : "Marcar como favorita";
   }
-
-  const currentSel = document.getElementById("currentFolderSelect");
-  if (currentSel){
-    currentSel.value = (typeof m.folder === "string" ? m.folder : "") || "";
-  }
-}
-
-/* =========================
-   Backup Export/Import
-   ========================= */
-function setBackupStatus(msg){
-  const el = document.getElementById("backupStatus");
-  if (el) el.textContent = msg;
-}
-
-function downloadTextFile(filename, text){
-  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function buildBackupObject(){
-  const names = await listAllRecipeNames();
-  const meta = loadMeta();
-  const folders = loadFolders();
-
-  // Ensure meta exists for listed recipes
-  for (const rn of names) ensureMetaForRecipe(meta, rn);
-
-  const marginPct = loadMarginPct();
-  const ingredientCache = loadIngredientCache();
-
-  // rows: prefer localStorage; fallback to DB reconstruct if needed
-  const recipes = {};
-
-  for (const rn of names){
-    let rows = loadRowsForRecipe(rn);
-
-    // If not in localStorage, reconstruct from DB (if possible)
-    if (!rows && DB){
-      try{
-        const items = await dbGetItems(DB, rn);
-        if (items && items.length){
-          rows = items.map(it => {
-            const c = ingredientCache[it.Ingredient] || { cost: 0, amount: 0 };
-            return {
-              name: String(it.Ingredient || ""),
-              cost: n(c.cost),
-              amount: n(c.amount),
-              recipeAmount: n(it.RecipeAmmount),
-            };
-          });
-        }
-      }catch{}
-    }
-
-    if (!rows) rows = defaultRows();
-
-    recipes[rn] = {
-      rows,
-      meta: meta[rn] || { favorite:false, folder:"" },
-    };
-  }
-
-  return {
-    app: "DessertCostCalculator",
-    schemaVersion: 1,
-    exportedAt: new Date().toISOString(),
-    currentRecipe: getCurrentRecipe(),
-    settings: {
-      marginPct,
-      ingredientCache,
-    },
-    folders,
-    recipes
-  };
-}
-
-async function exportBackup(){
-  try{
-    setBackupStatus("Generando respaldo…");
-    const obj = await buildBackupObject();
-    const json = JSON.stringify(obj, null, 2);
-
-    // store last backup for re-download
-    try{ localStorage.setItem(LAST_BACKUP_KEY_V1, json); }catch{}
-
-    const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
-    downloadTextFile(`dessert-backup-${stamp}.json`, json);
-
-    setBackupStatus(`Respaldo exportado (${Object.keys(obj.recipes || {}).length} recetas).`);
-  }catch(err){
-    console.error(err);
-    setBackupStatus("Error exportando respaldo.");
-    alert("No se pudo exportar el respaldo. Revisa la consola.");
-  }
-}
-
-function readFileAsText(file){
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(String(fr.result || ""));
-    fr.onerror = () => reject(fr.error || new Error("File read error"));
-    fr.readAsText(file);
-  });
-}
-
-function isValidBackupObject(obj){
-  if (!obj || typeof obj !== "object") return false;
-  if (obj.app !== "DessertCostCalculator") return false;
-  if (!Number.isFinite(obj.schemaVersion)) return false;
-  if (!obj.recipes || typeof obj.recipes !== "object") return false;
-  return true;
-}
-
-async function importBackupFromJsonText(jsonText, overwrite){
-  let obj;
-  try{
-    obj = JSON.parse(jsonText);
-  }catch{
-    alert("El archivo no es un JSON válido.");
-    return;
-  }
-
-  if (!isValidBackupObject(obj)){
-    alert("Este respaldo no corresponde a esta app o está incompleto.");
-    return;
-  }
-
-  const incomingFolders = Array.isArray(obj.folders) ? obj.folders : [];
-  const incomingRecipes = obj.recipes || {};
-
-  // Merge folders
-  const foldersMerged = saveFolders([...loadFolders(), ...incomingFolders]);
-
-  // Merge meta
-  const meta = loadMeta();
-
-  const incomingNames = Object.keys(incomingRecipes);
-  for (const rn of incomingNames){
-    const rec = incomingRecipes[rn];
-    if (!rec || typeof rec !== "object") continue;
-
-    ensureMetaForRecipe(meta, rn);
-
-    // If overwrite: meta replaced; else: merge (incoming wins if present)
-    const incMeta = rec.meta && typeof rec.meta === "object" ? rec.meta : null;
-    if (incMeta){
-      meta[rn].favorite = (typeof incMeta.favorite === "boolean") ? incMeta.favorite : meta[rn].favorite;
-      meta[rn].folder   = (typeof incMeta.folder === "string") ? incMeta.folder : meta[rn].folder;
-    }
-  }
-  saveMeta(meta);
-
-  // Import settings (merge)
-  try{
-    if (obj.settings && typeof obj.settings === "object"){
-      if (typeof obj.settings.marginPct === "number"){
-        saveMarginPct(obj.settings.marginPct);
-        const marginEl = document.getElementById("marginPct");
-        if (marginEl) marginEl.value = String(obj.settings.marginPct);
-      }
-      if (obj.settings.ingredientCache && typeof obj.settings.ingredientCache === "object"){
-        // merge cache
-        const cur = loadIngredientCache();
-        const merged = { ...cur, ...obj.settings.ingredientCache };
-        saveIngredientCache(merged);
-      }
-    }
-  }catch{}
-
-  // Import recipes rows
-  for (const rn of incomingNames){
-    const rec = incomingRecipes[rn];
-    if (!rec || typeof rec !== "object") continue;
-
-    const rows = Array.isArray(rec.rows) ? rec.rows : null;
-    if (!rows) continue;
-
-    const sanitized = rows.map(r => ({
-      name: String(r?.name ?? ""),
-      cost: n(r?.cost),
-      amount: n(r?.amount),
-      recipeAmount: n(r?.recipeAmount),
-    }));
-
-    // Merge vs overwrite at recipe level:
-    // - overwrite: replace localStorage rows & DB for that recipe
-    // - merge: if recipe exists, we still replace its rows because “merge rows” is ambiguous
-    //          (this is the safest: the backup is the source of truth for that recipe)
-    // If you want true merge rows, lo hacemos después.
-    saveRowsForRecipe(rn, sanitized);
-
-    if (DB){
-      try{ await dbPutItems(DB, rn, sanitized); }catch{}
-    }
-  }
-
-  // Set current recipe if exists
-  const desiredCurrent = String(obj.currentRecipe || "").trim();
-  if (desiredCurrent && incomingRecipes[desiredCurrent]){
-    await switchRecipe(desiredCurrent, true);
-  }else{
-    // keep current
-    await switchRecipe(getCurrentRecipe(), true);
-  }
-
-  // Refresh UI
-  await refreshFoldersUI();
-  await refreshRecipesUI();
-  syncCurrentRecipeMetaUI();
-
-  setBackupStatus(`Importado: ${incomingNames.length} recetas. Carpetas: ${foldersMerged.length}.`);
-}
-
-async function importBackup(){
-  const fileInput = document.getElementById("importFile");
-  const overwriteToggle = document.getElementById("importOverwriteToggle");
-  const overwrite = !!(overwriteToggle && overwriteToggle.checked);
-
-  if (!fileInput || !fileInput.files || !fileInput.files.length){
-    alert("Selecciona un archivo .json primero.");
-    return;
-  }
-
-  const file = fileInput.files[0];
-
-  const ok = confirm(
-    overwrite
-      ? "Vas a IMPORTAR con SOBRESCRITURA.\n\nLas recetas del respaldo reemplazarán recetas con el mismo nombre.\n\n¿Continuar?"
-      : "Vas a IMPORTAR en modo FUSIÓN.\n\nNo se borra nada; se agregan/actualizan recetas del respaldo.\n\n¿Continuar?"
-  );
-  if (!ok) return;
-
-  try{
-    setBackupStatus("Leyendo respaldo…");
-    const txt = await readFileAsText(file);
-    await importBackupFromJsonText(txt, overwrite);
-  }catch(err){
-    console.error(err);
-    setBackupStatus("Error importando respaldo.");
-    alert("No se pudo importar. Revisa la consola.");
-  }finally{
-    try{ fileInput.value = ""; }catch{}
-  }
-}
-
-function downloadLastBackup(){
-  const raw = localStorage.getItem(LAST_BACKUP_KEY_V1);
-  if (!raw){
-    alert("Aún no has exportado un respaldo en este navegador.");
-    return;
-  }
-  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
-  downloadTextFile(`dessert-backup-LAST-${stamp}.json`, raw);
 }
 
 /* =========================
    Boot
    ========================= */
 document.addEventListener("DOMContentLoaded", async () => {
-  runSafeMigration();
-
   // Drawer listeners FIRST
   const openBtn = document.getElementById("openDrawerBtn");
   const closeBtn = document.getElementById("closeDrawerBtn");
@@ -1015,7 +595,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Search + filters
+  // Search + favorites filter
   const searchEl = document.getElementById("recipeSearch");
   if (searchEl){
     searchEl.addEventListener("input", async (e) => {
@@ -1024,36 +604,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  const folderFilterEl = document.getElementById("folderFilter");
-  if (folderFilterEl){
-    folderFilterEl.addEventListener("change", async (e) => {
-      filterFolder = String(e.target.value || "");
-      await refreshRecipesUI();
-    });
-  }
-
   const favOnlyEl = document.getElementById("favOnlyToggle");
   if (favOnlyEl){
     favOnlyEl.addEventListener("change", async (e) => {
       favOnly = !!e.target.checked;
-      await refreshRecipesUI();
-    });
-  }
-
-  const resetFiltersBtn = document.getElementById("resetFiltersBtn");
-  if (resetFiltersBtn){
-    resetFiltersBtn.addEventListener("click", async () => {
-      searchQuery = "";
-      filterFolder = "";
-      favOnly = false;
-
-      const s = document.getElementById("recipeSearch");
-      const f = document.getElementById("folderFilter");
-      const c = document.getElementById("favOnlyToggle");
-      if (s) s.value = "";
-      if (f) f.value = "";
-      if (c) c.checked = false;
-
       await refreshRecipesUI();
     });
   }
@@ -1118,58 +672,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       await refreshRecipesUI();
     });
   }
-
-  // Folder assign (current recipe)
-  const currentFolderSelect = document.getElementById("currentFolderSelect");
-  if (currentFolderSelect){
-    currentFolderSelect.addEventListener("change", async (e) => {
-      const folder = String(e.target.value || "");
-      const meta = loadMeta();
-      ensureMetaForRecipe(meta, currentRecipe);
-      meta[currentRecipe].folder = folder;
-      saveMeta(meta);
-      syncCurrentRecipeMetaUI();
-      await refreshRecipesUI();
-    });
-  }
-
-  const clearFolderBtn = document.getElementById("clearFolderBtn");
-  if (clearFolderBtn){
-    clearFolderBtn.addEventListener("click", async () => {
-      const meta = loadMeta();
-      ensureMetaForRecipe(meta, currentRecipe);
-      meta[currentRecipe].folder = "";
-      saveMeta(meta);
-      syncCurrentRecipeMetaUI();
-      await refreshRecipesUI();
-    });
-  }
-
-  // Create folder
-  const createFolderBtn = document.getElementById("createFolderBtn");
-  if (createFolderBtn){
-    createFolderBtn.addEventListener("click", async () => {
-      const input = document.getElementById("newFolderName");
-      const name = String(input ? input.value : "").trim();
-      if (!name) return;
-
-      saveFolders([...loadFolders(), name]);
-      if (input) input.value = "";
-
-      await refreshFoldersUI();
-      await refreshRecipesUI();
-    });
-  }
-
-  // Backup buttons
-  const exportBtn = document.getElementById("exportBackupBtn");
-  if (exportBtn) exportBtn.addEventListener("click", exportBackup);
-
-  const importBtn = document.getElementById("importBackupBtn");
-  if (importBtn) importBtn.addEventListener("click", importBackup);
-
-  const downloadLastBtn = document.getElementById("downloadLastBackupBtn");
-  if (downloadLastBtn) downloadLastBtn.addEventListener("click", downloadLastBackup);
 
   // Table events
   const tbody = document.getElementById("tbody");
@@ -1246,9 +748,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   setRecipeTitle();
   renderTable();
 
-  await refreshFoldersUI();
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
-
-  setBackupStatus("Listo. Exporta un JSON cuando quieras.");
 });
