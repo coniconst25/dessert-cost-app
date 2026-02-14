@@ -2,13 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Calculadora de Costos</title>
+  <meta name="description" content="Calculadora de costos de recetas: ingredientes, costos, margen y precio final." />
 
+  <!-- PWA / Android -->
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#f3dfe4">
+  <meta name="mobile-web-app-capable" content="yes">
 
-  <!-- Cache-bust -->
+  <!-- Icons (Android + desktop) -->
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+
+  <!-- iOS (Home Screen) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Dessert Cost">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icon180.png">
+
+  <!-- Optional: Windows tiles -->
+  <meta name="msapplication-TileColor" content="#f3dfe4">
+  <meta name="msapplication-TileImage" content="./icon-192.png">
+
+  <!-- Styles -->
   <link rel="stylesheet" href="./style.css?v=20260214b" />
 </head>
 <body>
