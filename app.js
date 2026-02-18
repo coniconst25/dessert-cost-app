@@ -335,15 +335,22 @@ function buildRowHTML(r, idx){
   return `
     <tr data-row="${idx}">
       <td><input data-k="name" data-i="${idx}" value="${escapeHtml(r.name)}" placeholder="e.g., Flour" /></td>
-      <td><input data-k="cost" data-i="${idx}" inputmode="decimal" value="${r.cost || ""}" placeholder="0" /></td>
-      <td><input data-k="amount" data-i="${idx}" inputmode="decimal" value="${r.amount || ""}" placeholder="0" /></td>
-      <td class="readonly" data-out="unit" data-i="${idx}">${money(unit)}</td>
+
       <td><input data-k="recipeAmount" data-i="${idx}" inputmode="decimal" value="${r.recipeAmount || ""}" placeholder="0" /></td>
+
+      <td><input data-k="cost" data-i="${idx}" inputmode="decimal" value="${r.cost || ""}" placeholder="0" /></td>
+
+      <td><input data-k="amount" data-i="${idx}" inputmode="decimal" value="${r.amount || ""}" placeholder="0" /></td>
+
+      <td class="readonly" data-out="unit" data-i="${idx}">${money(unit)}</td>
+
       <td class="readonly" data-out="recipeCost" data-i="${idx}">${money(recipeCost)}</td>
+
       <td><button class="btn btn-danger" type="button" data-del="${idx}">Delete</button></td>
     </tr>
   `;
 }
+
 
 function updateComputedForIndex(rows, idx){
   const r = rows[idx];
@@ -1214,3 +1221,4 @@ if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
   setView("summary");
   await renderSummaryTable();
 });
+
