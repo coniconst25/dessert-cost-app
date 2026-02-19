@@ -945,71 +945,22 @@ header.topbar{
   top: var(--sat);
 }
 
-/* ===============================
-   FIXES (Topbar + Settings dropdown + Editor Add Button)
-   =============================== */
 
-.topbar{
+
+/* ===========================
+   FIX: Settings dropdown always visible
+   - Force hide when aria-hidden="true" or when no .open class
+   =========================== */
+.settings .menu{ display:none !important; }
+.settings .menu.open{ display:block !important; }
+.settings .menu[aria-hidden="true"]{ display:none !important; }
+.settings .menu[aria-hidden="false"]{ display:block !important; }
+
+/* ===========================
+   Editor: botón + Añadir debajo del Total
+   =========================== */
+.editorAddRow{
   display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-}
-
-.tabsRow{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.actions{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.settings{
-  position:relative;
-  display:inline-flex;
-  align-items:center;
-}
-
-/* Force dropdown closed unless .open (prevents 'always open' due to conflicting rules/inline styles) */
-.settings .menu{
-  display:none !important;
-  position:absolute;
-  right:0;
-  top:calc(100% + 10px);
-  min-width:220px;
-  padding:8px;
-  border:1px solid var(--line);
-  border-radius:14px;
-  background: rgba(255,255,255,0.96);
-  box-shadow: 0 14px 30px rgba(0,0,0,0.10);
-  z-index:80;
-}
-.settings .menu.open{
-  display:block !important;
-}
-
-.menuItem{
-  width:100%;
-  text-align:left;
-  padding:10px 10px;
-  border-radius:12px;
-  border:1px solid transparent;
-  background: transparent;
-  cursor:pointer;
-}
-.menuItem:hover{
-  background: rgba(216,140,154,0.12);
-  border-color: rgba(216,140,154,0.28);
-}
-
-.editorActionsRow{
-  display:flex;
-  justify-content:flex-end;
-  margin-top:10px;
+  justify-content:flex-start;
+  margin-top:12px;
 }
