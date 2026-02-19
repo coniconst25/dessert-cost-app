@@ -141,8 +141,6 @@ function ensureMetaForRecipe(meta, recipeName){
   return meta;
 }
 
-
-
 function getRecipeSettings(recipeName){
   const meta = loadMeta();
   ensureMetaForRecipe(meta, recipeName);
@@ -330,27 +328,22 @@ function updateIngredientCacheFromRows(rows){
   saveIngredientCache(cache);
 }
 
+/* ✅ buildRowHTML actualizado al nuevo orden:
+   Ingrediente | Receta | Costo | Cantidad | Costo Unitario | Costo Receta */
 function buildRowHTML(r, idx){
   const { unit, recipeCost } = computeRow(r);
   return `
     <tr data-row="${idx}">
       <td><input data-k="name" data-i="${idx}" value="${escapeHtml(r.name)}" placeholder="e.g., Flour" /></td>
-
       <td><input data-k="recipeAmount" data-i="${idx}" inputmode="decimal" value="${r.recipeAmount || ""}" placeholder="0" /></td>
-
       <td><input data-k="cost" data-i="${idx}" inputmode="decimal" value="${r.cost || ""}" placeholder="0" /></td>
-
       <td><input data-k="amount" data-i="${idx}" inputmode="decimal" value="${r.amount || ""}" placeholder="0" /></td>
-
       <td class="readonly" data-out="unit" data-i="${idx}">${money(unit)}</td>
-
       <td class="readonly" data-out="recipeCost" data-i="${idx}">${money(recipeCost)}</td>
-
       <td><button class="btn btn-danger" type="button" data-del="${idx}">Delete</button></td>
     </tr>
   `;
 }
-
 
 function updateComputedForIndex(rows, idx){
   const r = rows[idx];
@@ -459,7 +452,8 @@ function renderRecipeList(recipeNames){
     left.className = "recipeLeft";
     left.style.minWidth = "0";
     left.innerHTML = `<div class="recipeName"><span>${escapeHtml(name)}</span></div>`;
-const right = document.createElement("div");
+
+    const right = document.createElement("div");
     right.style.display = "flex";
     right.style.gap = "8px";
     right.style.alignItems = "center";
@@ -560,7 +554,6 @@ async function ensureRowsForRecipe(recipeName){
 }
 
 async function switchRecipe(recipeName, persist){
-  // Save settings for current recipe before switching
   persistCurrentRecipeSettingsFromUI();
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
@@ -589,7 +582,6 @@ function scheduleSave(){
 }
 
 async function createRecipeClean(name){
-  // Save settings for current recipe before creating
   persistCurrentRecipeSettingsFromUI();
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
 
@@ -635,10 +627,6 @@ function syncCurrentRecipeMetaUI(){
 }
 
 /* =========================
-   Boot
-   ========================= */
-
-/* =========================
    Summary View (all recipes)
    ========================= */
 let summarySearchQuery = "";
@@ -664,11 +652,6 @@ function recipeIsFavorite(recipeName){
   ensureMetaForRecipe(meta, recipeName);
   saveMeta(meta);
   return !!meta[recipeName].favorite;
-}
-
-function getMarginPctFromUI(){
-  const marginEl = document.getElementById("marginPct");
-  return marginEl ? n(marginEl.value) : loadMarginPct();
 }
 
 async function getRowsForSummary(recipeName){
@@ -704,8 +687,6 @@ async function renderSummaryTable(){
   const tbody = document.getElementById("summaryTbody");
   if (!tbody) return;
 
-  // Margin is per-recipe (stored in meta)
-
   const names = await listAllRecipeNames();
   const filtered = names.filter(matchesSummaryFilters);
 
@@ -729,7 +710,6 @@ async function renderSummaryTable(){
     tr.innerHTML = `
       <td class="summaryName">
         <span class="name">${escapeHtml(name)}</span>
-        
       </td>
       <td>${money(total)}</td>
       <td>${moneyInt(finalPrice)}</td>
@@ -746,9 +726,8 @@ async function renderSummaryTable(){
   }
 }
 
-
 /* =========================
-   Export / Import DB (ingredients per recipe)
+   Export / Import DB
    ========================= */
 function downloadJson(filename, obj){
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
@@ -762,7 +741,6 @@ function downloadJson(filename, obj){
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-
 async function exportIngredientsDB(){
   const names = await listAllRecipeNames();
   const meta = loadMeta();
@@ -772,7 +750,6 @@ async function exportIngredientsDB(){
   const outRecipes = [];
 
   for (const recipeName of names){
-    // Load rows as they appear in editor (includes cost/amount/recipeAmount)
     const rows = loadRowsForRecipe(recipeName) || defaultRows();
     const s = getRecipeSettings(recipeName);
 
@@ -785,14 +762,7 @@ async function exportIngredientsDB(){
       const unitCost = (amount > 0) ? (cost / amount) : 0;
       const recipeCost = unitCost * recipeAmount;
 
-      return {
-        ingredient,
-        cost,
-        amount,
-        unitCost,
-        recipeAmount,
-        recipeCost
-      };
+      return { ingredient, cost, amount, unitCost, recipeAmount, recipeCost };
     });
 
     const totalCost = normalizedRows.reduce((acc, r) => acc + n(r.recipeCost), 0);
@@ -816,74 +786,59 @@ async function exportIngredientsDB(){
     });
   }
 
-  const payload = {
-    version: 3,
-    exportedAt: new Date().toISOString(),
-    recipes: outRecipes
-  };
-
+  const payload = { version: 3, exportedAt: new Date().toISOString(), recipes: outRecipes };
   downloadJson("dessert_recipes_full_export.json", payload);
 }
-
 
 async function importIngredientsDBFromObject(obj){
   if (!obj || typeof obj !== "object") throw new Error("JSON inválido.");
 
-  
-// Accept v3 full export (preferred)
-if (Array.isArray(obj.recipes)){
-  const meta = loadMeta();
+  if (Array.isArray(obj.recipes)){
+    const meta = loadMeta();
 
-  for (const rec of obj.recipes){
-    const recipeName = String(rec && rec.recipe || "").trim();
-    if (!recipeName) continue;
+    for (const rec of obj.recipes){
+      const recipeName = String(rec && rec.recipe || "").trim();
+      if (!recipeName) continue;
 
-    // Ensure + restore meta fields directly (IMPORTANT: do not overwrite later)
-    ensureMetaForRecipe(meta, recipeName);
+      ensureMetaForRecipe(meta, recipeName);
 
-    const mp = Number(rec.marginPct);
-    const yq = Number(rec.yieldQty);
+      const mp = Number(rec.marginPct);
+      const yq = Number(rec.yieldQty);
 
-    meta[recipeName].favorite = !!rec.favorite;
-    meta[recipeName].marginPct = Number.isFinite(mp) ? mp : meta[recipeName].marginPct;
-    meta[recipeName].yieldQty  = (Number.isFinite(yq) && yq > 0) ? yq : meta[recipeName].yieldQty;
+      meta[recipeName].favorite = !!rec.favorite;
+      meta[recipeName].marginPct = Number.isFinite(mp) ? mp : meta[recipeName].marginPct;
+      meta[recipeName].yieldQty  = (Number.isFinite(yq) && yq > 0) ? yq : meta[recipeName].yieldQty;
 
-    // Restore rows
-    const rowsIn = Array.isArray(rec.rows) ? rec.rows : [];
-    const restored = rowsIn
-      .map(r => ({
-        name: String(r && r.ingredient || "").trim(),
-        cost: n(r && r.cost),
-        amount: n(r && r.amount),
-        recipeAmount: n(r && r.recipeAmount),
-      }))
-      .filter(r => r.name);
+      const rowsIn = Array.isArray(rec.rows) ? rec.rows : [];
+      const restored = rowsIn
+        .map(r => ({
+          name: String(r && r.ingredient || "").trim(),
+          cost: n(r && r.cost),
+          amount: n(r && r.amount),
+          recipeAmount: n(r && r.recipeAmount),
+        }))
+        .filter(r => r.name);
 
-    saveRowsForRecipe(recipeName, restored.length ? restored : defaultRows());
+      saveRowsForRecipe(recipeName, restored.length ? restored : defaultRows());
 
-    // Also update IndexedDB store if available (ingredient + recipeAmount)
-    if (DB){
-      const dbRows = restored.map(r => ({ name: r.name, recipeAmount: r.recipeAmount }));
-      await dbPutItems(DB, recipeName, dbRows);
+      if (DB){
+        const dbRows = restored.map(r => ({ name: r.name, recipeAmount: r.recipeAmount }));
+        await dbPutItems(DB, recipeName, dbRows);
+      }
     }
+
+    saveMeta(meta);
+
+    await refreshRecipesUI();
+    applyRecipeSettingsToUI();
+    if (rowsState) updateTotalAndPricing(rowsState);
+    if (currentView === "summary") await renderSummaryTable();
+    return;
   }
 
-  // Single save at the end (prevents wiping margin/yield back to defaults)
-  saveMeta(meta);
-
-  // Refresh UI
-  await refreshRecipesUI();
-  applyRecipeSettingsToUI();
-  if (rowsState) updateTotalAndPricing(rowsState);
-  if (currentView === "summary") await renderSummaryTable();
-  return;
-}
-
-  // Backward-compat: accept v2 format {items:[{recipe,ingredient}], recipes:[{recipe,marginPct,yieldQty}]}
   const items = Array.isArray(obj.items) ? obj.items : null;
   if (!items) throw new Error("JSON inválido o versión no soportada.");
 
-  // Build map recipe -> set(ingredient)
   const map = new Map();
   for (const it of items){
     if (!it) continue;
@@ -896,12 +851,10 @@ if (Array.isArray(obj.recipes)){
 
   if (!map.size) throw new Error("No hay items válidos para importar.");
 
-  // Update meta + defaults
   const meta = loadMeta();
   for (const recipe of map.keys()) ensureMetaForRecipe(meta, recipe);
   saveMeta(meta);
 
-  // Restore recipe settings if present
   if (Array.isArray(obj.recipes)){
     for (const r of obj.recipes){
       const rn = String(r && (r.recipe || r.name) || "").trim();
@@ -915,7 +868,6 @@ if (Array.isArray(obj.recipes)){
     }
   }
 
-  // Write LocalStorage rows for each recipe (cost/amount unknown -> 0)
   for (const [recipe, setIngs] of map.entries()){
     const rows = Array.from(setIngs).sort((a,b)=>a.localeCompare(b)).map(ing => ({
       name: ing,
@@ -926,7 +878,6 @@ if (Array.isArray(obj.recipes)){
     saveRowsForRecipe(recipe, rows.length ? rows : defaultRows());
   }
 
-  // If IndexedDB available, store items with RecipeAmmount=0
   if (DB){
     for (const [recipe, setIngs] of map.entries()){
       const rows = Array.from(setIngs).map(ing => ({ name: ing, recipeAmount: 0 }));
@@ -934,7 +885,6 @@ if (Array.isArray(obj.recipes)){
     }
   }
 
-  // Refresh UI
   await refreshRecipesUI();
   applyRecipeSettingsToUI();
   if (rowsState) updateTotalAndPricing(rowsState);
@@ -942,7 +892,6 @@ if (Array.isArray(obj.recipes)){
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  // Drawer listeners FIRST
   const openBtn = document.getElementById("openDrawerBtn");
   const closeBtn = document.getElementById("closeDrawerBtn");
   const overlay = document.getElementById("drawerOverlay");
@@ -951,116 +900,106 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
   if (overlay) overlay.addEventListener("click", closeDrawer);
 
+  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsMenu = document.getElementById("settingsMenu");
+  const exportDbBtn = document.getElementById("exportDbBtn");
+  const importDbBtn = document.getElementById("importDbBtn");
+  const importFileInput = document.getElementById("importFileInput");
 
-// Settings dropdown (Export/Import)
-const settingsBtn = document.getElementById("settingsBtn");
-const settingsMenu = document.getElementById("settingsMenu");
-const exportDbBtn = document.getElementById("exportDbBtn");
-const importDbBtn = document.getElementById("importDbBtn");
-const importFileInput = document.getElementById("importFileInput");
+  function closeSettings(){
+    if (settingsMenu) settingsMenu.classList.remove("open");
+    if (settingsMenu) settingsMenu.setAttribute("aria-hidden", "true");
+  }
 
-function closeSettings(){
-  if (settingsMenu) settingsMenu.classList.remove("open");
-  if (settingsMenu) settingsMenu.setAttribute("aria-hidden", "true");
-}
+  if (settingsBtn){
+    settingsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!settingsMenu) return;
+      const open = settingsMenu.classList.toggle("open");
+      settingsMenu.setAttribute("aria-hidden", open ? "false" : "true");
+    });
+  }
 
-if (settingsBtn){
-  settingsBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (!settingsMenu) return;
-    const open = settingsMenu.classList.toggle("open");
-    settingsMenu.setAttribute("aria-hidden", open ? "false" : "true");
-  });
-}
+  document.addEventListener("click", () => closeSettings());
 
-document.addEventListener("click", () => closeSettings());
+  if (exportDbBtn){
+    exportDbBtn.addEventListener("click", async () => {
+      closeSettings();
+      try{
+        await exportIngredientsDB();
+      }catch(err){
+        console.error(err);
+        alert("No se pudo exportar. Intenta nuevamente.");
+      }
+    });
+  }
 
-if (exportDbBtn){
-  exportDbBtn.addEventListener("click", async () => {
-    closeSettings();
-    try{
-      await exportIngredientsDB();
-    }catch(err){
-      console.error(err);
-      alert("No se pudo exportar. Intenta nuevamente.");
-    }
-  });
-}
+  if (importDbBtn && importFileInput){
+    importDbBtn.addEventListener("click", () => {
+      closeSettings();
+      importFileInput.value = "";
+      importFileInput.click();
+    });
 
-if (importDbBtn && importFileInput){
-  importDbBtn.addEventListener("click", () => {
-    closeSettings();
-    importFileInput.value = "";
-    importFileInput.click(); // works on mobile + desktop
-  });
+    importFileInput.addEventListener("change", async () => {
+      const file = importFileInput.files && importFileInput.files[0];
+      if (!file) return;
+      try{
+        const text = await file.text();
+        const obj = JSON.parse(text);
+        await importIngredientsDBFromObject(obj);
+        alert("Importación completada.");
+      }catch(err){
+        console.error(err);
+        alert("No se pudo importar: JSON inválido o incompatible.");
+      }
+    });
+  }
 
-  importFileInput.addEventListener("change", async () => {
-    const file = importFileInput.files && importFileInput.files[0];
-    if (!file) return;
-    try{
-      const text = await file.text();
-      const obj = JSON.parse(text);
-      await importIngredientsDBFromObject(obj);
-      alert("Importación completada.");
-    }catch(err){
-      console.error(err);
-      alert("No se pudo importar: JSON inválido o incompatible.");
-    }
-  });
-}
+  const viewSummaryBtn = document.getElementById("viewSummaryBtn");
+  const viewEditorBtn  = document.getElementById("viewEditorBtn");
 
-
-
-// View buttons (Resumen / Editor)
-const viewSummaryBtn = document.getElementById("viewSummaryBtn");
-const viewEditorBtn  = document.getElementById("viewEditorBtn");
-
-if (viewSummaryBtn) viewSummaryBtn.addEventListener("click", async () => {
-  setView("summary");
-  await renderSummaryTable();
-});
-
-if (viewEditorBtn) viewEditorBtn.addEventListener("click", () => {
-  setView("editor");
-});
-
-// Summary controls
-const sumSearchEl = document.getElementById("summarySearch");
-if (sumSearchEl){
-  sumSearchEl.addEventListener("input", async (e) => {
-    summarySearchQuery = String(e.target.value || "");
+  if (viewSummaryBtn) viewSummaryBtn.addEventListener("click", async () => {
+    setView("summary");
     await renderSummaryTable();
   });
-}
 
-const sumFavEl = document.getElementById("summaryFavOnly");
-if (sumFavEl){
-  sumFavEl.addEventListener("change", async (e) => {
-    summaryFavOnly = !!e.target.checked;
-    await renderSummaryTable();
+  if (viewEditorBtn) viewEditorBtn.addEventListener("click", () => {
+    setView("editor");
   });
-}
 
+  const sumSearchEl = document.getElementById("summarySearch");
+  if (sumSearchEl){
+    sumSearchEl.addEventListener("input", async (e) => {
+      summarySearchQuery = String(e.target.value || "");
+      await renderSummaryTable();
+    });
+  }
+
+  const sumFavEl = document.getElementById("summaryFavOnly");
+  if (sumFavEl){
+    sumFavEl.addEventListener("change", async (e) => {
+      summaryFavOnly = !!e.target.checked;
+      await renderSummaryTable();
+    });
+  }
 
   maybeCleanLegacyTemplate();
 
-  // Recipe settings (margin + yield)
-const marginEl = document.getElementById("marginPct");
-const yieldEl = document.getElementById("yieldQty");
+  const marginEl = document.getElementById("marginPct");
+  const yieldEl = document.getElementById("yieldQty");
 
-// On load / after DB init
-applyRecipeSettingsToUI();
+  applyRecipeSettingsToUI();
 
-function onSettingsChange(){
-  persistCurrentRecipeSettingsFromUI();
-  if (rowsState) updateTotalAndPricing(rowsState);
-  if (currentView === "summary") { renderSummaryTable(); }
-}
+  function onSettingsChange(){
+    persistCurrentRecipeSettingsFromUI();
+    if (rowsState) updateTotalAndPricing(rowsState);
+    if (currentView === "summary") { renderSummaryTable(); }
+  }
 
-if (marginEl) marginEl.addEventListener("input", onSettingsChange);
-if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
+  if (marginEl) marginEl.addEventListener("input", onSettingsChange);
+  if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
 
-// Search + favorites filter
   const searchEl = document.getElementById("recipeSearch");
   if (searchEl){
     searchEl.addEventListener("input", async (e) => {
@@ -1125,7 +1064,6 @@ if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
     }
   });
 
-  // Favorite toggle (current recipe)
   const toggleFavBtn = document.getElementById("toggleFavoriteBtn");
   if (toggleFavBtn){
     toggleFavBtn.addEventListener("click", async () => {
@@ -1138,7 +1076,6 @@ if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
     });
   }
 
-  // Table events
   const tbody = document.getElementById("tbody");
   if (tbody){
     tbody.addEventListener("input", (e) => {
@@ -1191,7 +1128,6 @@ if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
     });
   }
 
-  // Open DB (non-blocking)
   try{
     DB = await openDB();
   }catch(err){
@@ -1199,7 +1135,6 @@ if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
     DB = null;
   }
 
-  // Load initial recipe
   currentRecipe = getCurrentRecipe();
   rowsState = await ensureRowsForRecipe(currentRecipe);
   saveRowsForRecipe(currentRecipe, rowsState);
@@ -1213,12 +1148,6 @@ if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
   setRecipeTitle();
   applyRecipeSettingsToUI();
   renderTable();
-
   await refreshRecipesUI();
   syncCurrentRecipeMetaUI();
-
-  // Default landing: Summary
-  setView("summary");
-  await renderSummaryTable();
 });
-
