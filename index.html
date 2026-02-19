@@ -41,50 +41,51 @@
     <button id="closeDrawerBtn" class="iconBtn" type="button" aria-label="Close">✕</button>
   </div>
 
-  <div class="drawerBody">
+  
+<div class="drawerBody">
 
-    <!-- Search + Favorites filter -->
-    <div class="drawerCard">
-      <div class="drawerCol">
-        <label class="fieldLabel" for="recipeSearch">Buscar</label>
-        <input id="recipeSearch" placeholder="Buscar receta…" />
-      </div>
-
-      <div style="margin-top:10px;">
-        <label class="check">
-          <input id="favOnlyToggle" type="checkbox" />
-          <span>Solo favoritas</span>
-        </label>
-      </div>
-
-      <div class="smallNote">
-        Tip: escribe para filtrar por nombre.
-      </div>
+  <!-- Search + Favorites filter -->
+  <div class="drawerCard">
+    <div class="drawerCol">
+      <label class="fieldLabel" for="recipeSearch">Buscar</label>
+      <input id="recipeSearch" placeholder="Buscar receta…" />
     </div>
 
-    <!-- Create recipe -->
-    <div class="drawerCard">
-      <div class="drawerRow">
-        <input id="newRecipeName" placeholder="Nueva Receta (ej. Kuchen)" />
-        <button id="createRecipeBtn" class="btn" type="button">Crear</button>
-      </div>
-      <div class="smallNote">Tip: Abre una receta, luego presiona <b>Guardar</b> para almacenar ingredientes.</div>
+    <div style="margin-top:10px;">
+      <label class="check">
+        <input id="favOnlyToggle" type="checkbox" />
+        <span>Solo favoritas</span>
+      </label>
     </div>
 
-    <!-- Current recipe actions + list -->
-    <div class="drawerCard">
-      <div class="drawerRow" style="justify-content:space-between; gap:10px;">
-        <div class="pill">Receta actual</div>
-        <div class="rowRight">
-          <button id="toggleFavoriteBtn" class="iconBtn" type="button" title="Marcar como favorita">☆</button>
-          <button id="saveRecipeBtn" class="btn" type="button">Guardar</button>
-        </div>
-      </div>
-
-      <div id="recipeList" class="recipeList" role="list" style="margin-top:12px;"></div>
+    <div class="smallNote">
+      Tip: escribe para filtrar por nombre.
     </div>
-
   </div>
+
+  <!-- Create recipe -->
+  <div class="drawerCard">
+    <div class="drawerRow">
+      <input id="newRecipeName" placeholder="Nueva Receta (ej. Kuchen)" />
+      <button id="createRecipeBtn" class="btn" type="button">Crear</button>
+    </div>
+    <div class="smallNote">Tip: Abre una receta, luego presiona <b>Guardar</b> para almacenar ingredientes.</div>
+  </div>
+
+  <!-- Current recipe actions + list -->
+  <div class="drawerCard">
+    <div class="drawerRow" style="justify-content:space-between; gap:10px;">
+      <div class="pill">Receta actual</div>
+      <div class="rowRight">
+        <button id="toggleFavoriteBtn" class="iconBtn" type="button" title="Marcar como favorita">☆</button>
+        <button id="saveRecipeBtn" class="btn" type="button">Guardar</button>
+      </div>
+    </div>
+
+    <div id="recipeList" class="recipeList" role="list" style="margin-top:12px;"></div>
+  </div>
+
+</div>
 </aside>
 
 <header class="topbar">
@@ -102,54 +103,53 @@
   </div>
 
   <div class="actions">
-    <!-- +Añadir se movió al Editor debajo del TOTAL -->
     <button id="resetBtn" class="btn btn-secondary" type="button">Reiniciar</button>
 
-    <div class="settings">
-      <button id="settingsBtn" class="iconBtn" type="button" aria-label="Configuración" title="Configuración">⚙️</button>
-      <div id="settingsMenu" class="menu" aria-hidden="true">
-        <button id="exportDbBtn" class="menuItem" type="button">Exportar recetas (JSON)</button>
-        <button id="importDbBtn" class="menuItem" type="button">Importar recetas (JSON)</button>
-      </div>
-      <input id="importFileInput" type="file" accept="application/json" style="display:none" />
-    </div>
+<div class="settings">
+  <button id="settingsBtn" class="iconBtn" type="button" aria-label="Configuración" title="Configuración">⚙️</button>
+  <div id="settingsMenu" class="menu" aria-hidden="true">
+    <button id="exportDbBtn" class="menuItem" type="button">Exportar recetas (JSON)</button>
+    <button id="importDbBtn" class="menuItem" type="button">Importar recetas (JSON)</button>
+  </div>
+  <input id="importFileInput" type="file" accept="application/json" style="display:none" />
+</div>
   </div>
 </header>
 
 <main class="container">
-
-  <!-- Summary View -->
-  <section id="summaryView" class="card" style="display:none;">
-    <div class="cardHeader">
-      <div>
-        <h2 style="margin:0;">Resumen de recetas</h2>
-        <p class="muted" style="margin:6px 0 0 0;">Busca, filtra por favoritas y revisa costos rápidamente.</p>
-      </div>
-      <div class="summaryControls">
-        <input id="summarySearch" placeholder="Buscar receta…" />
-        <label class="check summaryFav">
-          <input id="summaryFavOnly" type="checkbox" />
-          <span>Solo favoritas</span>
-        </label>
-      </div>
+  
+<!-- Summary View -->
+<section id="summaryView" class="card" style="display:none;">
+  <div class="cardHeader">
+    <div>
+      <h2 style="margin:0;">Resumen de recetas</h2>
+      <p class="muted" style="margin:6px 0 0 0;">Busca, filtra por favoritas y revisa costos rápidamente.</p>
     </div>
-
-    <div class="tableWrap">
-      <table class="summaryTable">
-        <thead>
-          <tr>
-            <th>Nombre receta</th>
-            <th>Costo receta</th>
-            <th>Precio final</th>
-          </tr>
-        </thead>
-        <tbody id="summaryTbody"></tbody>
-      </table>
+    <div class="summaryControls">
+      <input id="summarySearch" placeholder="Buscar receta…" />
+      <label class="check summaryFav">
+        <input id="summaryFavOnly" type="checkbox" />
+        <span>Solo favoritas</span>
+      </label>
     </div>
-  </section>
+  </div>
 
-  <!-- Editor View -->
-  <section id="editorView" class="card">
+  <div class="tableWrap">
+    <table class="summaryTable">
+      <thead>
+        <tr>
+          <th>Nombre receta</th>
+          <th>Costo receta</th>
+          <th>Precio final</th>
+        </tr>
+      </thead>
+      <tbody id="summaryTbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Editor View (existing UI) -->
+<section id="editorView" class="card">
 
     <div class="tableWrap">
       <table id="tbl">
@@ -187,8 +187,7 @@
       </table>
     </div>
 
-    <!-- Editor: Add row button (moved below Total) -->
-    <div class="editorAddRow">
+    <div class="editorActionsRow">
       <button id="addRowBtn" class="btn" type="button">+ Añadir</button>
     </div>
 
@@ -209,23 +208,23 @@
         </div>
       </div>
 
-      <div class="drawerCard">
-        <div class="kv">
-          <div class="k">Cantidad final</div>
-          <div class="v" style="display:flex; gap:10px; align-items:center;">
-            <input id="yieldQty" inputmode="decimal" value="1" style="max-width:120px;" />
-            <span class="muted">unidades</span>
-          </div>
-        </div>
-        <div class="kv" style="margin-top:10px;">
-          <div class="k">Costo por unidad</div>
-          <div class="v" id="unitCostCell">$0</div>
-        </div>
-        <div class="kv" style="margin-top:10px;">
-          <div class="k">Precio por unidad</div>
-          <div class="v" id="unitPriceCell">$0</div>
-        </div>
-      </div>
+<div class="drawerCard">
+  <div class="kv">
+    <div class="k">Cantidad final</div>
+    <div class="v" style="display:flex; gap:10px; align-items:center;">
+      <input id="yieldQty" inputmode="decimal" value="1" style="max-width:120px;" />
+      <span class="muted">unidades</span>
+    </div>
+  </div>
+  <div class="kv" style="margin-top:10px;">
+    <div class="k">Costo por unidad</div>
+    <div class="v" id="unitCostCell">$0</div>
+  </div>
+  <div class="kv" style="margin-top:10px;">
+    <div class="k">Precio por unidad</div>
+    <div class="v" id="unitPriceCell">$0</div>
+  </div>
+</div>
     </div>
 
     <div class="hint">
