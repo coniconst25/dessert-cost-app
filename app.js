@@ -335,18 +335,16 @@ function buildRowHTML(r, idx){
   return `
     <tr data-row="${idx}">
       <td><input data-k="name" data-i="${idx}" value="${escapeHtml(r.name)}" placeholder="e.g., Flour" /></td>
-
       <td><input data-k="recipeAmount" data-i="${idx}" inputmode="decimal" value="${r.recipeAmount || ""}" placeholder="0" /></td>
-
       <td><input data-k="cost" data-i="${idx}" inputmode="decimal" value="${r.cost || ""}" placeholder="0" /></td>
-
       <td><input data-k="amount" data-i="${idx}" inputmode="decimal" value="${r.amount || ""}" placeholder="0" /></td>
-
       <td class="readonly" data-out="unit" data-i="${idx}">${money(unit)}</td>
-
       <td class="readonly" data-out="recipeCost" data-i="${idx}">${money(recipeCost)}</td>
-
-      <td><button class="btn btn-danger" type="button" data-del="${idx}">Delete</button></td>
+      <td class="rowActions">
+        <button class="iconBtnSmall" type="button" data-up="${idx}" title="Subir">↑</button>
+        <button class="iconBtnSmall" type="button" data-down="${idx}" title="Bajar">↓</button>
+        <button class="btn btn-danger" type="button" data-del="${idx}">Delete</button>
+      </td>
     </tr>
   `;
 }
@@ -392,6 +390,8 @@ function renumberDOMIndices(){
     tr.dataset.row = String(newIdx);
     tr.querySelectorAll("[data-i]").forEach(el => el.dataset.i = String(newIdx));
     tr.querySelectorAll("[data-del]").forEach(el => el.dataset.del = String(newIdx));
+    tr.querySelectorAll("[data-up]").forEach(el => el.dataset.up = String(newIdx));
+    tr.querySelectorAll("[data-down]").forEach(el => el.dataset.down = String(newIdx));
   });
 }
 
@@ -1161,8 +1161,46 @@ if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
     });
 
     tbody.addEventListener("click", (e) => {
-      const btn = e.target;
-      if (!(btn instanceof HTMLElement)) return;
+      const btn = (e.target instanceof Element) ? e.target.closest("button") : null;
+      if (!btn) return;
+
+      // Move up
+      const up = btn.getAttribute("data-up");
+      if (up !== null){
+        const idx = Number(up);
+        if (!Number.isFinite(idx)) return;
+        const to = idx - 1;
+        if (to < 0 || to >= rowsState.length) return;
+
+        const [moved] = rowsState.splice(idx, 1);
+        rowsState.splice(to, 0, moved);
+
+        saveRowsForRecipe(currentRecipe, rowsState);
+        renderTable();
+        scheduleSave();
+        updateIngredientCacheFromRows(rowsState);
+        return;
+      }
+
+      // Move down
+      const down = btn.getAttribute("data-down");
+      if (down !== null){
+        const idx = Number(down);
+        if (!Number.isFinite(idx)) return;
+        const to = idx + 1;
+        if (to < 0 || to >= rowsState.length) return;
+
+        const [moved] = rowsState.splice(idx, 1);
+        rowsState.splice(to, 0, moved);
+
+        saveRowsForRecipe(currentRecipe, rowsState);
+        renderTable();
+        scheduleSave();
+        updateIngredientCacheFromRows(rowsState);
+        return;
+      }
+
+      // Delete row
       const del = btn.getAttribute("data-del");
       if (del === null) return;
 
@@ -1187,8 +1225,7 @@ if (yieldEl) yieldEl.addEventListener("input", onSettingsChange);
       saveRowsForRecipe(currentRecipe, rowsState);
       updateTotalAndPricing(rowsState);
       scheduleSave();
-    });
-  }
+    });  }
 
   // Open DB (non-blocking)
   try{
